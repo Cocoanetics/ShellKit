@@ -1,3 +1,4 @@
+import ArgumentParser
 import Foundation
 import Testing
 @testable import ShellKit
@@ -98,32 +99,38 @@ import Testing
     }
 }
 
-@Suite struct CommandRegistrationTests {
+@Suite struct ArgumentParserBridgeTests {
 
-    struct Echo: ParsableShellCommand {
-        static let configuration = ArgumentParser_Configuration
+    /// A real `AsyncParsableCommand` — exactly the shape SwiftPorts
+    /// CLIs use. The embedder registers this type via
+    /// `Shell.register(_:)`; the body reads from / writes to
+    /// `Shell.current` so the same code works standalone (via
+    /// `await Echo.main()`) and embedded.
+    struct Echo: AsyncParsableCommand {
+        static let configuration = CommandConfiguration(
+            commandName: "shellkit-test-echo",
+            abstract: "Smoke-test command for ShellKit.",
+            version: "0.0.1-test")
 
         @Argument var words: [String] = []
+        @Flag(name: .shortAndLong) var loud: Bool = false
 
-        func execute() async throws -> ShellKit.ExitStatus {
-            Shell.current.stdout(words.joined(separator: " ") + "\n")
-            return .success
-        }
-
-        // Wrapper to keep import ergonomics local.
-        static var ArgumentParser_Configuration: CommandConfiguration {
-            CommandConfiguration(
-                commandName: "shellkit-test-echo",
-                abstract: "Smoke-test command for ShellKit.")
+        func run() async throws {
+            let joined = words.joined(separator: " ")
+            let line = (loud ? joined.uppercased() : joined) + "\n"
+            Shell.current.stdout(line)
         }
     }
 
-    @Test func registerAndDispatch() async throws {
+    @Test func registerAndDispatchAsync() async throws {
         let captured = OutputSink()
         let shell = Shell(stdout: captured)
         shell.register(Echo.self)
 
         try await shell.withCurrent {
+            // The shell hands the bridge the FULL argv —
+            // including argv[0] = command name. The bridge strips
+            // argv[0] internally before parseAsRoot.
             let cmd = shell.commands["shellkit-test-echo"]
             #expect(cmd != nil)
             let status = try await cmd!.run(
@@ -136,12 +143,27 @@ import Testing
         #expect(out == "hello world\n")
     }
 
-    @Test func parseErrorReportsUsage() async throws {
-        struct Strict: ParsableShellCommand {
+    @Test func flagsParseInsideBridge() async throws {
+        let captured = OutputSink()
+        let shell = Shell(stdout: captured)
+        shell.register(Echo.self)
+
+        try await shell.withCurrent {
+            let cmd = shell.commands["shellkit-test-echo"]!
+            _ = try await cmd.run(["shellkit-test-echo", "-l", "alice"])
+        }
+
+        captured.finish()
+        let out = await captured.readAllString()
+        #expect(out == "ALICE\n")
+    }
+
+    @Test func parseErrorPrintsToStderr() async throws {
+        struct Strict: ParsableCommand {
             static let configuration = CommandConfiguration(
                 commandName: "shellkit-test-strict")
             @Argument var required: String
-            func execute() async throws -> ShellKit.ExitStatus { .success }
+            mutating func run() throws {}
         }
 
         let stderr = OutputSink()
@@ -150,14 +172,66 @@ import Testing
 
         try await shell.withCurrent {
             let cmd = shell.commands["shellkit-test-strict"]!
+            // Missing the required argument → parse error.
             let status = try await cmd.run(["shellkit-test-strict"])
-            #expect(status.code != 0)  // missing required argument
+            #expect(status.code != 0)
         }
 
         stderr.finish()
         let errText = await stderr.readAllString()
-        #expect(!errText.isEmpty)  // some usage message landed there
+        #expect(!errText.isEmpty)  // ArgumentParser usage message
+    }
+
+    @Test func helpFlagPrintsToStdoutAndExitsZero() async throws {
+        let stdout = OutputSink()
+        let shell = Shell(stdout: stdout)
+        shell.register(Echo.self)
+
+        try await shell.withCurrent {
+            let cmd = shell.commands["shellkit-test-echo"]!
+            let status = try await cmd.run(["shellkit-test-echo", "--help"])
+            #expect(status == .success)
+        }
+
+        stdout.finish()
+        let out = await stdout.readAllString()
+        // The full help text contains both abstract and usage.
+        #expect(out.contains("Smoke-test command for ShellKit."))
+        #expect(out.contains("USAGE:") || out.contains("shellkit-test-echo"))
+    }
+
+    @Test func versionFlagWorks() async throws {
+        let stdout = OutputSink()
+        let shell = Shell(stdout: stdout)
+        shell.register(Echo.self)
+
+        try await shell.withCurrent {
+            let cmd = shell.commands["shellkit-test-echo"]!
+            let status = try await cmd.run(["shellkit-test-echo", "--version"])
+            #expect(status == .success)
+        }
+
+        stdout.finish()
+        let out = await stdout.readAllString()
+        #expect(out.contains("0.0.1-test"))
+    }
+
+    @Test func exitCodeThrownFromRunIsHonoured() async throws {
+        struct Failer: AsyncParsableCommand {
+            static let configuration = CommandConfiguration(
+                commandName: "shellkit-test-failer")
+            func run() async throws {
+                throw ExitCode(42)
+            }
+        }
+
+        let shell = Shell()
+        shell.register(Failer.self)
+
+        try await shell.withCurrent {
+            let cmd = shell.commands["shellkit-test-failer"]!
+            let status = try await cmd.run(["shellkit-test-failer"])
+            #expect(status.code == 42)
+        }
     }
 }
-
-import ArgumentParser

@@ -33,7 +33,7 @@ Same command body, both modes. That's the contract.
 | `ProcessTable` | Virtual PID table — backgrounded `&` jobs, `ps` / `kill` / `pgrep` / `pkill` operate against this; **not** the host's real process table. |
 | `Command` + `ClosureCommand` | Command protocol; Shell's registry dispatches by name. |
 | `BinCatalog` | Canonical macOS-shaped paths (`/bin/cat`, `/usr/bin/grep`, `/usr/local/bin/rg`) used by `which` / `type` / `command -v`. |
-| `ParsableShellCommand` | ArgumentParser bridge — typed `@Argument` / `@Option` / `@Flag` parsing, with `execute()` reading from `Shell.current`. |
+| `Shell.register(_:)` | ArgumentParser bridge — register any `AsyncParsableCommand` (or `ParsableCommand`) on a `Shell` and dispatch by name. The command's `run()` reads from / writes to `Shell.current`. |
 | `Shell` | The central `@TaskLocal` context. Mutable class. Holds all of the above. `withCurrent { … }` binds for a Task scope. |
 | `ExitStatus` | POSIX-compatible exit code wrapper. |
 
@@ -49,32 +49,54 @@ Same command body, both modes. That's the contract.
 
 ## Quick example
 
+The same `AsyncParsableCommand` runs in both modes — no parallel
+protocol, no rewriting:
+
 ```swift
 import ArgumentParser
 import ShellKit
 
-struct Greet: ParsableShellCommand {
-    static let configuration = CommandConfiguration(commandName: "greet")
-    @Argument var name: String = "world"
-    @Flag(name: .shortAndLong) var loud: Bool = false
+public struct Greet: AsyncParsableCommand {
+    public static let configuration = CommandConfiguration(
+        commandName: "greet",
+        abstract: "Print a friendly hello.",
+        version: "0.1.0")
 
-    func execute() async throws -> ExitStatus {
+    @Argument public var name: String = "world"
+    @Flag(name: .shortAndLong) public var loud: Bool = false
+
+    public init() {}
+
+    public func run() async throws {
         let msg = loud ? "HELLO \(name.uppercased())" : "hello \(name)"
+        // Reads from `Shell.current` — under an embedder this is the
+        // bound shell; standalone it's `Shell.processDefault` which
+        // wraps `FileHandle.standardOutput`. Same code, both modes.
         Shell.current.stdout(msg + "\n")
-        return .success
     }
 }
+```
 
-// Standalone — uses Shell.processDefault, writes to real stdout:
-@main struct GreetCLI {
-    static func main() async throws {
-        let argv = Array(CommandLine.arguments.dropFirst())
-        let status = try await Greet.runAsRootCommand(argv)
-        exit(status.code)
+**Standalone** — exactly the ArgumentParser idiom; ShellKit isn't
+even imported in the executable wrapper:
+
+```swift
+import GreetCommand   // wherever Greet is defined
+
+@main struct Entry {
+    static func main() async {
+        await Greet.main()
     }
 }
+```
 
-// Embedded — captured stdout, sandboxed FS, custom env:
+**Embedded** — an in-process shell registers the same type and
+dispatches it with custom IO / env / sandbox:
+
+```swift
+import GreetCommand
+import ShellKit
+
 let captured = OutputSink()
 let sandbox = Sandbox.rooted(at: tempDir, allowedHosts: ["api.github.com"])
 let shell = Shell(
@@ -85,12 +107,19 @@ let shell = Shell(
 shell.register(Greet.self)
 
 try await shell.withCurrent {
+    // The shell hands the bridge the FULL argv — argv[0] is the
+    // command name, set by the shell. The bridge strips it
+    // internally before handing off to ArgumentParser.
     let cmd = shell.commands["greet"]!
     _ = try await cmd.run(["greet", "--loud", "Alice"])
 }
 captured.finish()
 print(await captured.readAllString())   // → "HELLO ALICE\n"
 ```
+
+`--help` / `--version` / parse errors / `throw ExitCode(_:)` all
+work exactly as ArgumentParser specifies — the bridge translates
+the conventions to ``ExitStatus`` instead of calling `exit()`.
 
 ## Status
 
