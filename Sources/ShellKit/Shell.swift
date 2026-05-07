@@ -107,7 +107,13 @@ open class Shell: @unchecked Sendable {
     /// What `whoami` / `hostname` / `id` / `uname` report.
     /// Default for ``processDefault`` is ``HostInfo/real()``;
     /// embedders running untrusted scripts assign ``HostInfo/synthetic``.
-    public var hostInfo: HostInfo
+    ///
+    /// Declared `open` so a subclass (e.g. SwiftBash's bash
+    /// interpreter) can attach a `didSet` observer that re-syncs
+    /// the matching environment variables (`$HOSTNAME` / `$USER` /
+    /// `$LOGNAME` / `$HOSTTYPE` / `$MACHTYPE`) when the identity
+    /// changes.
+    open var hostInfo: HostInfo
 
     // MARK: - Process state
 
