@@ -1,3 +1,0 @@
-module ShellKit {
-    header "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/include/ShellKit-Swift.h"
-}
