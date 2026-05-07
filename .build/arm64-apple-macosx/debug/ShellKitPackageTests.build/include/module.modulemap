@@ -1,0 +1,3 @@
+module ShellKitPackageTests {
+    header "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKitPackageTests.build/include/ShellKitPackageTests-Swift.h"
+}

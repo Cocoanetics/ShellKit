@@ -1,0 +1,131 @@
+{
+  "": {
+    "swift-dependencies": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/primary.swiftdeps"
+  },
+  "/Users/oliver/Developer/ShellKit/Sources/ShellKit/Command/BinCatalog.swift": {
+    "dependencies": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/BinCatalog.d",
+    "object": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/BinCatalog.swift.o",
+    "swiftmodule": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/BinCatalog~partial.swiftmodule",
+    "swift-dependencies": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/BinCatalog.swiftdeps",
+    "diagnostics": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/BinCatalog.dia"
+  },
+  "/Users/oliver/Developer/ShellKit/Sources/ShellKit/Command/ClosureCommand.swift": {
+    "dependencies": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/ClosureCommand.d",
+    "object": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/ClosureCommand.swift.o",
+    "swiftmodule": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/ClosureCommand~partial.swiftmodule",
+    "swift-dependencies": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/ClosureCommand.swiftdeps",
+    "diagnostics": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/ClosureCommand.dia"
+  },
+  "/Users/oliver/Developer/ShellKit/Sources/ShellKit/Command/Command.swift": {
+    "dependencies": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/Command.d",
+    "object": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/Command.swift.o",
+    "swiftmodule": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/Command~partial.swiftmodule",
+    "swift-dependencies": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/Command.swiftdeps",
+    "diagnostics": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/Command.dia"
+  },
+  "/Users/oliver/Developer/ShellKit/Sources/ShellKit/Command/ExitStatus.swift": {
+    "dependencies": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/ExitStatus.d",
+    "object": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/ExitStatus.swift.o",
+    "swiftmodule": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/ExitStatus~partial.swiftmodule",
+    "swift-dependencies": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/ExitStatus.swiftdeps",
+    "diagnostics": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/ExitStatus.dia"
+  },
+  "/Users/oliver/Developer/ShellKit/Sources/ShellKit/Command/ParsableShellCommand.swift": {
+    "dependencies": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/ParsableShellCommand.d",
+    "object": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/ParsableShellCommand.swift.o",
+    "swiftmodule": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/ParsableShellCommand~partial.swiftmodule",
+    "swift-dependencies": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/ParsableShellCommand.swiftdeps",
+    "diagnostics": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/ParsableShellCommand.dia"
+  },
+  "/Users/oliver/Developer/ShellKit/Sources/ShellKit/Environment/Environment.swift": {
+    "dependencies": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/Environment.d",
+    "object": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/Environment.swift.o",
+    "swiftmodule": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/Environment~partial.swiftmodule",
+    "swift-dependencies": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/Environment.swiftdeps",
+    "diagnostics": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/Environment.dia"
+  },
+  "/Users/oliver/Developer/ShellKit/Sources/ShellKit/IO/InputSource.swift": {
+    "dependencies": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/InputSource.d",
+    "object": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/InputSource.swift.o",
+    "swiftmodule": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/InputSource~partial.swiftmodule",
+    "swift-dependencies": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/InputSource.swiftdeps",
+    "diagnostics": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/InputSource.dia"
+  },
+  "/Users/oliver/Developer/ShellKit/Sources/ShellKit/IO/OutputSink.swift": {
+    "dependencies": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/OutputSink.d",
+    "object": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/OutputSink.swift.o",
+    "swiftmodule": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/OutputSink~partial.swiftmodule",
+    "swift-dependencies": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/OutputSink.swiftdeps",
+    "diagnostics": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/OutputSink.dia"
+  },
+  "/Users/oliver/Developer/ShellKit/Sources/ShellKit/Network/NetworkConfig.swift": {
+    "dependencies": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/NetworkConfig.d",
+    "object": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/NetworkConfig.swift.o",
+    "swiftmodule": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/NetworkConfig~partial.swiftmodule",
+    "swift-dependencies": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/NetworkConfig.swiftdeps",
+    "diagnostics": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/NetworkConfig.dia"
+  },
+  "/Users/oliver/Developer/ShellKit/Sources/ShellKit/Network/NetworkFetcher.swift": {
+    "dependencies": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/NetworkFetcher.d",
+    "object": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/NetworkFetcher.swift.o",
+    "swiftmodule": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/NetworkFetcher~partial.swiftmodule",
+    "swift-dependencies": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/NetworkFetcher.swiftdeps",
+    "diagnostics": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/NetworkFetcher.dia"
+  },
+  "/Users/oliver/Developer/ShellKit/Sources/ShellKit/Network/PrivateIP.swift": {
+    "dependencies": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/PrivateIP.d",
+    "object": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/PrivateIP.swift.o",
+    "swiftmodule": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/PrivateIP~partial.swiftmodule",
+    "swift-dependencies": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/PrivateIP.swiftdeps",
+    "diagnostics": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/PrivateIP.dia"
+  },
+  "/Users/oliver/Developer/ShellKit/Sources/ShellKit/Network/SecureFetcher.swift": {
+    "dependencies": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/SecureFetcher.d",
+    "object": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/SecureFetcher.swift.o",
+    "swiftmodule": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/SecureFetcher~partial.swiftmodule",
+    "swift-dependencies": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/SecureFetcher.swiftdeps",
+    "diagnostics": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/SecureFetcher.dia"
+  },
+  "/Users/oliver/Developer/ShellKit/Sources/ShellKit/Network/URLAllowList.swift": {
+    "dependencies": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/URLAllowList.d",
+    "object": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/URLAllowList.swift.o",
+    "swiftmodule": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/URLAllowList~partial.swiftmodule",
+    "swift-dependencies": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/URLAllowList.swiftdeps",
+    "diagnostics": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/URLAllowList.dia"
+  },
+  "/Users/oliver/Developer/ShellKit/Sources/ShellKit/Process/HostInfo.swift": {
+    "dependencies": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/HostInfo.d",
+    "object": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/HostInfo.swift.o",
+    "swiftmodule": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/HostInfo~partial.swiftmodule",
+    "swift-dependencies": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/HostInfo.swiftdeps",
+    "diagnostics": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/HostInfo.dia"
+  },
+  "/Users/oliver/Developer/ShellKit/Sources/ShellKit/Process/ProcessTable.swift": {
+    "dependencies": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/ProcessTable.d",
+    "object": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/ProcessTable.swift.o",
+    "swiftmodule": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/ProcessTable~partial.swiftmodule",
+    "swift-dependencies": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/ProcessTable.swiftdeps",
+    "diagnostics": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/ProcessTable.dia"
+  },
+  "/Users/oliver/Developer/ShellKit/Sources/ShellKit/Sandbox/Sandbox+Factories.swift": {
+    "dependencies": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/Sandbox+Factories.d",
+    "object": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/Sandbox+Factories.swift.o",
+    "swiftmodule": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/Sandbox+Factories~partial.swiftmodule",
+    "swift-dependencies": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/Sandbox+Factories.swiftdeps",
+    "diagnostics": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/Sandbox+Factories.dia"
+  },
+  "/Users/oliver/Developer/ShellKit/Sources/ShellKit/Sandbox/Sandbox.swift": {
+    "dependencies": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/Sandbox.d",
+    "object": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/Sandbox.swift.o",
+    "swiftmodule": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/Sandbox~partial.swiftmodule",
+    "swift-dependencies": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/Sandbox.swiftdeps",
+    "diagnostics": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/Sandbox.dia"
+  },
+  "/Users/oliver/Developer/ShellKit/Sources/ShellKit/Shell.swift": {
+    "dependencies": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/Shell.d",
+    "object": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/Shell.swift.o",
+    "swiftmodule": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/Shell~partial.swiftmodule",
+    "swift-dependencies": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/Shell.swiftdeps",
+    "diagnostics": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKit.build/Shell.dia"
+  }
+}

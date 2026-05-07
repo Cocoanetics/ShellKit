@@ -1,0 +1,3 @@
+module ArgumentParser {
+    header "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ArgumentParser-tool.build/include/ArgumentParser-Swift.h"
+}

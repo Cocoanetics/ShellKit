@@ -1,0 +1,12 @@
+{
+  "": {
+    "swift-dependencies": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKitPackageTests.build/primary.swiftdeps"
+  },
+  "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKitPackageTests.derived/runner.swift": {
+    "dependencies": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKitPackageTests.build/runner.d",
+    "object": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKitPackageTests.build/runner.swift.o",
+    "swiftmodule": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKitPackageTests.build/runner~partial.swiftmodule",
+    "swift-dependencies": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKitPackageTests.build/runner.swiftdeps",
+    "diagnostics": "/Users/oliver/Developer/ShellKit/.build/arm64-apple-macosx/debug/ShellKitPackageTests.build/runner.dia"
+  }
+}
