@@ -49,7 +49,13 @@ import Foundation
 /// stack / process substitution / heredoc state — is the bash
 /// interpreter's concern, not the abstraction's. SwiftBash holds
 /// those alongside its `Shell`.
-public final class Shell: @unchecked Sendable {
+/// Subclass to extend the runtime context with language-specific
+/// state (a bash interpreter adds `errexit` / `pipefail` / shopt /
+/// trap tables / function-call depth on top; a JS runtime adds its
+/// own bookkeeping). The TaskLocal stores the base type, so callers
+/// who only know `ShellKit.Shell` see the runtime context; callers
+/// who need the subclass-specific bits cast on demand.
+open class Shell: @unchecked Sendable {
 
     // MARK: - Standard streams
 
@@ -134,7 +140,7 @@ public final class Shell: @unchecked Sendable {
 
     // MARK: - Init
 
-    public init(
+    public required init(
         stdin: InputSource = .empty,
         stdout: OutputSink? = nil,
         stderr: OutputSink? = nil,
@@ -201,8 +207,12 @@ public final class Shell: @unchecked Sendable {
     /// receiver; the two are fully independent (with reference-typed
     /// sinks like `stdout` / `stderr` shared so the subshell's
     /// output flows to the same destination by default).
-    public func copy() -> Shell {
-        let sub = Shell(
+    open func copy() -> Self {
+        // Subclasses that add their own state override this and call
+        // super.copy() then layer their fields onto the returned
+        // instance. Use of `Self` makes a subclass's `copy()`
+        // automatically return its own type when overridden.
+        let sub = type(of: self).init(
             stdin: stdin,
             stdout: stdout,
             stderr: stderr,
@@ -226,10 +236,14 @@ public final class Shell: @unchecked Sendable {
     /// point. Public so embedders can do `Shell.current` lookups
     /// in their own helpers without going through their own
     /// dispatcher.
-    public func withCurrent<T: Sendable>(
+    ///
+    /// Subclasses that bind additional TaskLocals (e.g. a bash
+    /// interpreter binding its own `BashShell.current` alongside
+    /// the base `Shell.current`) override this to nest the bindings.
+    open func withCurrent<T: Sendable>(
         _ body: () async throws -> T
     ) async rethrows -> T {
-        return try await Self.$current.withValue(self) { try await body() }
+        return try await Shell.$current.withValue(self) { try await body() }
     }
 }
 
