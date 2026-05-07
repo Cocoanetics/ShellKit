@@ -149,4 +149,33 @@ public extension Shell {
             .urls(for: .userDirectory, in: .userDomainMask).first
             ?? homeDirectory
     }
+
+    // MARK: - print(_:) replacement
+    //
+    // Swift's stdlib `print(_:separator:terminator:)` writes to
+    // `FILE *stdout` (fd 1) directly via `_stdoutImp`, bypassing
+    // `FileHandle.standardOutput` — and therefore bypassing the
+    // bound shell's `stdout` sink. CLI bodies that want their
+    // output to participate in a host's pipeline must use
+    // ``Shell/print(_:separator:terminator:)`` instead.
+
+    /// Drop-in replacement for stdlib
+    /// `print(_:separator:terminator:)` that routes through
+    /// ``current``'s `stdout` ``OutputSink``, so the bound shell's
+    /// configuration applies. Migration from stdlib is mechanical:
+    /// replace `print(` with `Shell.print(`.
+    static func print(_ items: Any...,
+                      separator: String = " ",
+                      terminator: String = "\n")
+    {
+        var rendered = ""
+        var first = true
+        for item in items {
+            if !first { rendered += separator }
+            rendered += "\(item)"
+            first = false
+        }
+        rendered += terminator
+        current.stdout(rendered)
+    }
 }
