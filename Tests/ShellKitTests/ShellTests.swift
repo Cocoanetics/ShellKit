@@ -74,6 +74,31 @@ import Testing
         #expect(Shell.processDefault.sandbox == nil)
     }
 
+    @Test func resolveAbsolutePathPassesThrough() async throws {
+        let shell = Shell()
+        let url = shell.resolve("/etc/hosts")
+        #expect(url.path == "/etc/hosts")
+    }
+
+    @Test func resolveRelativeUsesShellWorkingDirectory() async throws {
+        var env = Environment()
+        env.workingDirectory = "/tmp/some-where"
+        let shell = Shell(environment: env)
+        let url = shell.resolve("file.txt")
+        #expect(url.path == "/tmp/some-where/file.txt")
+    }
+
+    @Test func resolveStaticHonoursCurrent() async throws {
+        var env = Environment()
+        env.workingDirectory = "/var/scope"
+        let shell = Shell(environment: env)
+        try await shell.withCurrent {
+            #expect(Shell.resolve("data.json").path == "/var/scope/data.json")
+            // Absolute still passes through.
+            #expect(Shell.resolve("/abs.txt").path == "/abs.txt")
+        }
+    }
+
     @Test func rootedSandboxAllowsPathsUnderRoot() async throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("shellkit-test-\(UUID().uuidString)",

@@ -251,6 +251,52 @@ open class Shell: @unchecked Sendable {
     ) async rethrows -> T {
         return try await Shell.$current.withValue(self) { try await body() }
     }
+
+    // MARK: - Path resolution
+
+    /// Resolve a (possibly relative) path string into an absolute
+    /// `URL`, honouring the shell's current working directory.
+    ///
+    /// Absolute paths (`/foo/bar`, or `C:\foo` on Windows) come back
+    /// unchanged. Relative paths resolve against
+    /// ``environment``'s ``Environment/workingDirectory``.
+    ///
+    /// CLI commands resolving relative argv paths should use this
+    /// instead of `URL(fileURLWithPath:)` / `FileManager.default.currentDirectoryPath`
+    /// directly so embedders can confine path resolution to whatever
+    /// CWD they bound (typically tracked via the script's own `cd`
+    /// builtin updating `environment.workingDirectory`).
+    ///
+    /// The static counterpart ``resolve(_:)`` is the convenient
+    /// call site for code that doesn't already have a `Shell`
+    /// reference; it routes through ``current``.
+    public func resolve(_ path: String) -> URL {
+        if path.hasPrefix("/") {
+            return URL(fileURLWithPath: path)
+        }
+        #if os(Windows)
+        if path.count >= 2,
+           let second = path.dropFirst().first, second == ":" {
+            return URL(fileURLWithPath: path)
+        }
+        #endif
+        let cwd = environment.workingDirectory
+        if cwd.isEmpty {
+            return URL(
+                fileURLWithPath: FileManager.default.currentDirectoryPath,
+                isDirectory: true)
+                .appendingPathComponent(path)
+        }
+        return URL(fileURLWithPath: cwd, isDirectory: true)
+            .appendingPathComponent(path)
+    }
+
+    /// Resolve `path` against ``current``'s working directory.
+    /// Equivalent to `Shell.current.resolve(path)`; provided for
+    /// call-site convenience.
+    public static func resolve(_ path: String) -> URL {
+        current.resolve(path)
+    }
 }
 
 // MARK: - InputSource process standard input
