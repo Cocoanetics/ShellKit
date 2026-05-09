@@ -52,7 +52,7 @@ private let supportsPosixShell: Bool = {
 @Suite struct DefaultProcessLauncherTests {
 
     @Test func standaloneRoundTripsEcho() async throws {
-        try requireRealExec()
+        guard supportsRealExec else { return }
 
         let stdout = OutputSink()
         let stderr = OutputSink()
@@ -82,8 +82,7 @@ private let supportsPosixShell: Bool = {
     }
 
     @Test func capturesStderr() async throws {
-        try requireRealExec()
-        try requirePosixShell()
+        guard supportsRealExec, supportsPosixShell else { return }
 
         let stdout = OutputSink()
         let stderr = OutputSink()
@@ -109,8 +108,7 @@ private let supportsPosixShell: Bool = {
     }
 
     @Test func nonZeroExitStatusReported() async throws {
-        try requireRealExec()
-        try requirePosixShell()
+        guard supportsRealExec, supportsPosixShell else { return }
 
         let launcher = DefaultProcessLauncher()
         let env = Environment.current()
@@ -129,8 +127,7 @@ private let supportsPosixShell: Bool = {
     }
 
     @Test func environmentOverrideReachesSubprocess() async throws {
-        try requireRealExec()
-        try requirePosixShell()
+        guard supportsRealExec, supportsPosixShell else { return }
 
         var env = Environment.current()
         // Inject a custom variable; subprocess prints it back.
@@ -152,8 +149,7 @@ private let supportsPosixShell: Bool = {
     }
 
     @Test func workingDirectoryOverrideTakesEffect() async throws {
-        try requireRealExec()
-        try requirePosixShell()
+        guard supportsRealExec, supportsPosixShell else { return }
 
         let unique = "shellkit-cwd-\(UUID().uuidString)"
         let tmp = FileManager.default.temporaryDirectory
@@ -183,8 +179,7 @@ private let supportsPosixShell: Bool = {
     }
 
     @Test func stdinPipedThrough() async throws {
-        try requireRealExec()
-        try requirePosixShell()
+        guard supportsRealExec, supportsPosixShell else { return }
 
         let launcher = DefaultProcessLauncher()
         let env = Environment.current()
@@ -319,7 +314,7 @@ private let supportsPosixShell: Bool = {
     }
 
     @Test func unresolvedCommandFallsThroughToDefault() async throws {
-        try requireRealExec()
+        guard supportsRealExec else { return }
 
         let chain = ChainLauncher(
             primary: OnlyFooLauncher(),
@@ -375,22 +370,10 @@ private let supportsPosixShell: Bool = {
 }
 
 // MARK: - Helpers
-
-/// Tests that exercise real exec (``DefaultProcessLauncher``) call
-/// this to skip themselves on iOS / tvOS / watchOS / visionOS, where
-/// `posix_spawn` is forbidden.
-private func requireRealExec(file: String = #file, line: Int = #line) throws {
-    if !supportsRealExec {
-        throw SkipRealExec()
-    }
-}
-
-/// Skip the calling test on Windows — it relies on a POSIX shell
-/// (`/bin/sh`, `/bin/cat`, etc.).
-private func requirePosixShell(file: String = #file, line: Int = #line) throws {
-    if !supportsPosixShell {
-        throw SkipRealExec()
-    }
-}
-
-private struct SkipRealExec: Error {}
+//
+// Tests that need real subprocess exec or a POSIX shell guard
+// themselves with `guard supportsRealExec else { return }` /
+// `guard supportsPosixShell else { return }` rather than throwing,
+// because Swift Testing has no "skip" status — a thrown error
+// would surface as a failure. An unconditional early return passes
+// silently, which is the desired behaviour here.
