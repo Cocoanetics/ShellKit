@@ -1,0 +1,113 @@
+---
+name: Swift
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+
+  build-macos:
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      # macos-latest currently ships Xcode 16 / Swift 6.1; ShellKit's
+      # swift-subprocess dep needs the 6.1 toolchain, but bumping to
+      # Xcode 26 keeps us aligned with the SwiftBash workflow and gets
+      # us Swift 6.2 (matching the toolchain SwiftPorts targets).
+      - name: Select Xcode 26.0
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "26.0"
+      - name: Verify Swift version
+        run: swift --version
+      - name: Build (macOS)
+        run: swift build --build-tests -v
+      - name: Test (macOS)
+        run: swift test -v --skip-build --no-parallel
+
+  build-ios:
+    # Compile-only check on `generic/platform=iOS`. swift-subprocess is
+    # platform-gated out on iOS / tvOS / watchOS / visionOS (kernel
+    # forbids posix_spawn / fork) — this job verifies the
+    # `#if canImport(Subprocess)` gates in `DefaultProcessLauncher`
+    # compile cleanly against the iOS SDK.
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - name: Select Xcode 26.0
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "26.0"
+      - name: Build (iOS — all package targets)
+        run: |
+          xcodebuild \
+            -scheme ShellKit-Package \
+            -destination 'generic/platform=iOS' \
+            build
+
+  build-linux:
+    # Linux: full build + test. ShellKit has no C-library deps
+    # (swift-argument-parser + swift-subprocess are pure Swift), so
+    # there's nothing to apt-get install — the swiftlang/swift base
+    # image's libc-dev is enough.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - name: Verify Swift version
+        run: swift --version
+      - name: Build (Linux)
+        run: swift build --build-tests -v
+      - name: Test (Linux)
+        run: swift test -v --skip-build --no-parallel
+
+  build-windows:
+    # Windows: full build + test. Again no C-library deps, so no vcpkg
+    # provisioning needed (unlike SwiftBash, which pulls in libgit2 /
+    # libbz2 / liblzma / libzstd / liblz4 transitively via SwiftPorts).
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - name: Setup Swift
+        uses: SwiftyLab/setup-swift@latest
+        with:
+          swift-version: "6.3.1"
+      - name: Verify Swift version
+        run: swift --version
+      - name: Build (Windows)
+        shell: pwsh
+        run: swift build --build-tests -v
+      - name: Test (Windows)
+        shell: pwsh
+        run: swift test -v --skip-build --no-parallel
+
+  # Uses skiptools/swift-android-action which wraps the swift.org Android
+  # SDK setup AND runs the SwiftPM tests on an x86_64 Android emulator.
+  # No `container:` here — the action provisions its own toolchain and
+  # the emulator setup needs nested KVM, which only works on the bare
+  # ubuntu-* runner image.
+  build-android:
+    runs-on: ubuntu-latest
+    # First cold run = ~25 min (SDK + NDK + emulator boot dominates);
+    # cached subsequent runs are ~5 min. 30 min covers both with a
+    # comfortable margin.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build & Test (Android emulator)
+        uses: skiptools/swift-android-action@v2
+        with:
+          swift-version: "6.3"
+          # The default GitHub Linux runner has ~14 GiB free; the SDK,
+          # NDK, and emulator together push past that without cleanup.
+          free-disk-space: true
