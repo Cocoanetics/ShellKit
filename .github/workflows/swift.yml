@@ -50,7 +50,7 @@ jobs:
       - name: Build (iOS — all package targets)
         run: |
           xcodebuild \
-            -scheme ShellKit-Package \
+            -scheme ShellKit \
             -destination 'generic/platform=iOS' \
             build
 
