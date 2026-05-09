@@ -31,7 +31,24 @@ jobs:
       - name: Build (macOS)
         run: swift build --build-tests -v
       - name: Test (macOS)
-        run: swift test -v --skip-build --no-parallel
+        # Xcode 26's Swift 6.2 back-deploys `Span` to macOS 13 / 14 via
+        # `libswiftCompatibilitySpan.dylib` (under
+        # `swift-6.2/macosx/`). swift-subprocess references Span types
+        # unconditionally on `compiler(>=6.2)`, so even with our
+        # `SubprocessSpan` trait disabled the test binary still has an
+        # `@rpath/libswiftCompatibilitySpan.dylib` LC_LOAD_DYLIB.
+        # SwiftPM's test runtime doesn't put the toolchain's
+        # back-deployment dir on the search path, so we add it
+        # explicitly via DYLD_LIBRARY_PATH.
+        run: |
+          COMPAT_DIR="$(xcode-select -p)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-6.2/macosx"
+          if [ ! -d "$COMPAT_DIR" ]; then
+            echo "::error::expected back-deployment dir not found: $COMPAT_DIR"
+            ls -d "$(xcode-select -p)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-"*/macosx 2>/dev/null || true
+            exit 1
+          fi
+          export DYLD_LIBRARY_PATH="$COMPAT_DIR:${DYLD_LIBRARY_PATH:-}"
+          swift test -v --skip-build --no-parallel
 
   build-ios:
     # Compile-only check on `generic/platform=iOS`. swift-subprocess is
