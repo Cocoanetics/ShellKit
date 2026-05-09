@@ -13,6 +13,20 @@ private let supportsRealExec: Bool = {
     #endif
 }()
 
+/// Whether the host has a POSIX `/bin/sh` + standard `/bin/cat`.
+/// Tests that exercise specific shell-script behaviour (env-var
+/// expansion, `pwd -P`, redirection) can't easily express the same
+/// logic against `cmd.exe` / PowerShell, so those tests skip on
+/// Windows. The dispatch primitive itself is exercised by tests that
+/// use only `echo` (which resolves on every supported platform).
+private let supportsPosixShell: Bool = {
+    #if os(Windows)
+    return false
+    #else
+    return true
+    #endif
+}()
+
 @Suite struct ProcessLauncherWiringTests {
 
     @Test func processDefaultHasDefaultLauncher() {
@@ -69,6 +83,7 @@ private let supportsRealExec: Bool = {
 
     @Test func capturesStderr() async throws {
         try requireRealExec()
+        try requirePosixShell()
 
         let stdout = OutputSink()
         let stderr = OutputSink()
@@ -95,6 +110,7 @@ private let supportsRealExec: Bool = {
 
     @Test func nonZeroExitStatusReported() async throws {
         try requireRealExec()
+        try requirePosixShell()
 
         let launcher = DefaultProcessLauncher()
         let env = Environment.current()
@@ -114,6 +130,7 @@ private let supportsRealExec: Bool = {
 
     @Test func environmentOverrideReachesSubprocess() async throws {
         try requireRealExec()
+        try requirePosixShell()
 
         var env = Environment.current()
         // Inject a custom variable; subprocess prints it back.
@@ -136,6 +153,7 @@ private let supportsRealExec: Bool = {
 
     @Test func workingDirectoryOverrideTakesEffect() async throws {
         try requireRealExec()
+        try requirePosixShell()
 
         let unique = "shellkit-cwd-\(UUID().uuidString)"
         let tmp = FileManager.default.temporaryDirectory
@@ -166,6 +184,7 @@ private let supportsRealExec: Bool = {
 
     @Test func stdinPipedThrough() async throws {
         try requireRealExec()
+        try requirePosixShell()
 
         let launcher = DefaultProcessLauncher()
         let env = Environment.current()
@@ -362,6 +381,14 @@ private let supportsRealExec: Bool = {
 /// `posix_spawn` is forbidden.
 private func requireRealExec(file: String = #file, line: Int = #line) throws {
     if !supportsRealExec {
+        throw SkipRealExec()
+    }
+}
+
+/// Skip the calling test on Windows — it relies on a POSIX shell
+/// (`/bin/sh`, `/bin/cat`, etc.).
+private func requirePosixShell(file: String = #file, line: Int = #line) throws {
+    if !supportsPosixShell {
         throw SkipRealExec()
     }
 }
