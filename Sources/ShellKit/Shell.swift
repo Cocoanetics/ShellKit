@@ -135,6 +135,16 @@ open class Shell: @unchecked Sendable {
     /// SwiftBash's PATH walk).
     public var commands: [String: Command]
 
+    /// Real-subprocess dispatch primitive. Default is
+    /// ``DefaultProcessLauncher`` (delegates to swift-subprocess).
+    /// Embedders override this to virtualise exec — typically with a
+    /// ``ChainLauncher`` whose primary stage consults a builtin /
+    /// function table and whose tail is the default launcher, so
+    /// registered builtins shadow PATH while unknown names hit real
+    /// exec. Sandbox-only embedders that want to refuse exec entirely
+    /// install ``SandboxedDenyLauncher``.
+    public var processLauncher: any ProcessLauncher
+
     // MARK: - TaskLocal binding
 
     /// The active Shell for the current Task scope.
@@ -159,7 +169,8 @@ open class Shell: @unchecked Sendable {
         hostInfo: HostInfo = .synthetic,
         processTable: ProcessTable = ProcessTable(),
         virtualPID: Int32 = 1,
-        commands: [String: Command] = [:]
+        commands: [String: Command] = [:],
+        processLauncher: (any ProcessLauncher)? = nil
     ) {
         self.stdin = stdin
         self.stdout = stdout ?? .discard
@@ -174,6 +185,7 @@ open class Shell: @unchecked Sendable {
         self.processTable = processTable
         self.virtualPID = virtualPID
         self.commands = commands
+        self.processLauncher = processLauncher ?? DefaultProcessLauncher()
     }
 
     // MARK: - Process default
@@ -231,7 +243,8 @@ open class Shell: @unchecked Sendable {
             hostInfo: hostInfo,
             processTable: processTable,
             virtualPID: virtualPID,
-            commands: commands)
+            commands: commands,
+            processLauncher: processLauncher)
         return sub
     }
 
