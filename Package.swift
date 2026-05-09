@@ -1,4 +1,4 @@
-// swift-tools-version:6.0
+// swift-tools-version:6.1
 import PackageDescription
 
 // ShellKit — the virtualized shell-environment abstraction.
@@ -63,8 +63,17 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-argument-parser",
                  from: "1.3.0"),
         // Pinned to 0.4.x until 1.0 ships. See issue #1 for context.
+        // Explicit traits — opt OUT of `SubprocessSpan` because
+        // ShellKit doesn't use the Span-based overloads, and enabling
+        // them links a back-deployment shim
+        // (`libswiftCompatibilitySpan.dylib`) whose @rpath isn't on
+        // SwiftPM's test runtime search path on macOS 13–15. We do
+        // keep `SubprocessFoundation` (default-on) because
+        // ``DefaultProcessLauncher`` reads its captured byte buffers
+        // through Foundation's `Data`.
         .package(url: "https://github.com/swiftlang/swift-subprocess",
-                 .upToNextMinor(from: "0.4.0")),
+                 .upToNextMinor(from: "0.4.0"),
+                 traits: ["SubprocessFoundation"]),
     ],
     targets: [
         .target(
