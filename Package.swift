@@ -1,4 +1,4 @@
-// swift-tools-version:6.0
+// swift-tools-version:6.1
 import PackageDescription
 
 // ShellKit — the virtualized shell-environment abstraction.
@@ -62,12 +62,33 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/apple/swift-argument-parser",
                  from: "1.3.0"),
+        // Pinned to 0.4.x until 1.0 ships. See issue #1 for context.
+        // Explicit traits — opt OUT of `SubprocessSpan` because
+        // ShellKit doesn't use the Span-based overloads, and enabling
+        // them links a back-deployment shim
+        // (`libswiftCompatibilitySpan.dylib`) whose @rpath isn't on
+        // SwiftPM's test runtime search path on macOS 13–15. We do
+        // keep `SubprocessFoundation` (default-on) because
+        // ``DefaultProcessLauncher`` reads its captured byte buffers
+        // through Foundation's `Data`.
+        .package(url: "https://github.com/swiftlang/swift-subprocess",
+                 .upToNextMinor(from: "0.4.0"),
+                 traits: ["SubprocessFoundation"]),
     ],
     targets: [
         .target(
             name: "ShellKit",
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                // swift-subprocess pins iOS / tvOS / watchOS to "99.0" — kernel
+                // bans posix_spawn / fork there, so the dep is conditionally
+                // linked only on platforms where real exec is possible.
+                // ``DefaultProcessLauncher`` falls back to throwing
+                // ``ProcessLaunchUnsupportedOnThisPlatform`` on the rest.
+                .product(name: "Subprocess", package: "swift-subprocess",
+                         condition: .when(platforms: [
+                            .macOS, .linux, .windows, .android,
+                         ])),
             ],
             path: "Sources/ShellKit"
         ),
