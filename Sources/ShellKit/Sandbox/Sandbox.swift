@@ -114,7 +114,7 @@ public struct Sandbox: Sendable {
     /// guaranteed to succeed. Callers MAY inspect it for diagnostics
     /// or opt-in recovery; ShellKit / SwiftPorts internals never
     /// inspect it and never retry.
-    public struct Denial: Error, Sendable {
+    public struct Denial: Error, Sendable, CustomStringConvertible, LocalizedError {
         public let url: URL
         public let reason: String
         public let suggestion: URL?
@@ -124,5 +124,23 @@ public struct Sandbox: Sendable {
             self.reason = reason
             self.suggestion = suggestion
         }
+
+        /// Human-readable description that intentionally omits both
+        /// `url` and `suggestion`. The default `String(describing:)`
+        /// dump (which ArgumentParser's `fullMessage(for:)` falls
+        /// through to for unrecognised error types) would otherwise
+        /// expose the embedder's host sandbox root — for an
+        /// app-as-sandbox embedder that means the iOS container path
+        /// (`/Users/.../Containers/.../Documents/Foo.bar/...`) ends
+        /// up in user-visible stderr on a single denied call.
+        ///
+        /// Callers needing the URLs read `.url` and `.suggestion`
+        /// directly. The reason is the only safe-to-display string.
+        public var description: String { reason }
+
+        /// Same surface for `LocalizedError` consumers — keeps
+        /// `(error as NSError).localizedDescription` and
+        /// `error.localizedDescription` in sync with `description`.
+        public var errorDescription: String? { reason }
     }
 }

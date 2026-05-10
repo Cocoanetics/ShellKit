@@ -122,6 +122,37 @@ import Testing
             // expected
         }
     }
+
+    /// Default `String(describing:)` for a struct dumps every stored
+    /// property — including `suggestion`, which carries the host
+    /// sandbox root. ArgumentParser's `fullMessage(for:)` falls
+    /// through to that for unrecognised error types, so a denied
+    /// `gh issue list` would otherwise leak the embedder's
+    /// container path. Pin both `description` and
+    /// `errorDescription` so any consumer (string interpolation,
+    /// `localizedDescription`, ArgumentParser) gets the reason
+    /// only.
+    @Test func denialDescriptionDoesNotLeakUrls() {
+        let denial = Sandbox.Denial(
+            url: URL(fileURLWithPath: "/secret/host/root/Documents/Untitled.foo"),
+            reason: "host 'github.com' is not in the sandbox allowlist",
+            suggestion: URL(fileURLWithPath: "/secret/host/root/Documents/Untitled.foo/home"))
+
+        let viaInterpolation = "\(denial)"
+        let viaDescribing = String(describing: denial)
+        let viaLocalized = denial.errorDescription ?? ""
+
+        for s in [viaInterpolation, viaDescribing, viaLocalized] {
+            #expect(s.contains("host 'github.com' is not in the sandbox allowlist"),
+                    "expected reason in: \(s)")
+            #expect(!s.contains("/secret/host/root"),
+                    "host path leaked into: \(s)")
+            #expect(!s.contains("suggestion"),
+                    "field name leaked into: \(s)")
+            #expect(!s.contains("Denial("),
+                    "struct shape leaked into: \(s)")
+        }
+    }
 }
 
 @Suite struct ArgumentParserBridgeTests {
