@@ -70,6 +70,14 @@ public enum BinCatalog {
             m[name] = "/usr/local/bin/\(name)"
         }
 
+        // Embedder-supplied CLIs that ship as primary system tools
+        // belong in /usr/bin alongside `awk`, `sed`, `find`, etc.
+        // Whether `coder` actually surfaces in `ls /usr/bin` depends
+        // on whether the host shell registers it; this entry just
+        // declares where it WOULD live on a hypothetical "real"
+        // install.
+        m["coder"] = "/usr/bin/coder"
+
         // `curl` ships at /usr/bin/curl on macOS.
         m["curl"] = "/usr/bin/curl"
 
