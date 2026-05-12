@@ -42,7 +42,12 @@ public enum BinCatalog {
         ] { m[name] = "/bin/\(name)" }
 
         // /usr/bin — everything else we ship that would normally be
-        // installed there on macOS.
+        // installed there on macOS. The trailing group (`clear`,
+        // `open`, `pbcopy`, `pbpaste`, `say`) are macOS-specific
+        // tools; embedders register them through their own platform
+        // shim (iBash's `AppleBuiltins`) but the canonical install
+        // location is `/usr/bin` on real macOS, so listings here
+        // match what users see on their host.
         for name in [
             "awk", "base64", "basename", "bc", "cmp", "column", "comm",
             "cut", "diff", "dirname", "du", "egrep", "env", "expand",
@@ -55,6 +60,7 @@ public enum BinCatalog {
             "timeout", "touch", "tr", "tree", "true", "truncate",
             "uname", "unexpand", "uniq", "wait", "wc", "which",
             "whoami", "xargs", "xattr", "xxd", "yes",
+            "clear", "open", "pbcopy", "pbpaste", "say",
         ] { m[name] = "/usr/bin/\(name)" }
 
         // Third-party commonly-installed utilities (Homebrew /
