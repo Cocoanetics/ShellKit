@@ -130,23 +130,25 @@ public actor ProcessTable {
         return status
     }
 
-    /// Wait for every still-running entry. Returns the LAST awaited
+    /// Wait for every recorded child entry. Returns the LAST awaited
     /// status — bash's `wait` (no args) returns 0 if there were no
-    /// jobs, else the last job's status. Reaps each entry as it's
+    /// jobs, else the last child's status. Reaps each entry as it's
     /// awaited, matching real bash's "after `wait`, `jobs` is empty".
+    ///
+    /// Crucially, this includes children that already finished
+    /// BEFORE `wait` was called. A common pattern is `(cmd) &; wait`
+    /// where the spawned subshell can complete between the spawn and
+    /// the wait — real bash still reports the finished child's exit
+    /// status from `$?` because the parent hasn't reaped it yet.
+    /// Filtering to `.running` here would lose that status and
+    /// silently return 0 when the timing went the "spawn finished
+    /// fast" way.
     public func waitAll() async -> ExitStatus {
-        let pending = entries.compactMap {
-            $0.value.state == .running ? $0.key : nil
-        }.sorted()
+        let pending = entries.keys.sorted()
         var last = ExitStatus.success
         for pid in pending {
             if let s = await wait(pid: pid) { last = s }
         }
-        // Also drop any entries that were ALREADY finished when
-        // `waitAll` was called — those don't go through the loop above
-        // (we filter for `.running` to avoid double-await), but real
-        // bash's `wait` still clears them out.
-        reapAllFinished()
         return last
     }
 
