@@ -99,22 +99,41 @@ public actor ProcessTable {
     /// Await the Task at `pid`; returns its exit status, or the status
     /// of an entry that has already finished. Returns `nil` if `pid`
     /// is unknown.
+    ///
+    /// Reaps the entry on the way out — `bash`'s `wait $PID` makes that
+    /// PID disappear from `jobs` / `ps` the moment it returns. Without
+    /// the reap, completed jobs lingered forever as "Z"-state entries
+    /// in `ps` output, and a subsequent `wait` on the same PID kept
+    /// returning the stale status instead of "not a child of this
+    /// shell".
     public func wait(pid: Int32) async -> ExitStatus? {
         if let entry = entries[pid] {
             switch entry.state {
-            case .exited(let s): return s
-            case .failed: return ExitStatus(1)
-            case .cancelled: return ExitStatus(143) // 128 + SIGTERM
+            case .exited(let s):
+                reap(pid: pid)
+                return s
+            case .failed:
+                reap(pid: pid)
+                return ExitStatus(1)
+            case .cancelled:
+                reap(pid: pid)
+                return ExitStatus(143) // 128 + SIGTERM
             case .running: break // fall through and await
             }
         }
         guard let task = tasks[pid] else { return nil }
-        return await task.value.status
+        let status = await task.value.status
+        // The completion observer (`markFinished`) has already run by
+        // the time the Task value is available, so the entry is in a
+        // terminal state here — safe to reap.
+        reap(pid: pid)
+        return status
     }
 
     /// Wait for every still-running entry. Returns the LAST awaited
     /// status — bash's `wait` (no args) returns 0 if there were no
-    /// jobs, else the last job's status.
+    /// jobs, else the last job's status. Reaps each entry as it's
+    /// awaited, matching real bash's "after `wait`, `jobs` is empty".
     public func waitAll() async -> ExitStatus {
         let pending = entries.compactMap {
             $0.value.state == .running ? $0.key : nil
@@ -123,7 +142,35 @@ public actor ProcessTable {
         for pid in pending {
             if let s = await wait(pid: pid) { last = s }
         }
+        // Also drop any entries that were ALREADY finished when
+        // `waitAll` was called — those don't go through the loop above
+        // (we filter for `.running` to avoid double-await), but real
+        // bash's `wait` still clears them out.
+        reapAllFinished()
         return last
+    }
+
+    /// Drop `pid`'s entry from the table. Used by `wait` after it
+    /// hands back the exit status — once the caller has observed the
+    /// final state, the entry is no longer interesting. Public so an
+    /// embedder's REPL can auto-reap at the prompt boundary the way
+    /// real bash does between commands.
+    public func reap(pid: Int32) {
+        guard let e = entries[pid], e.state != .running else { return }
+        entries.removeValue(forKey: pid)
+        tasks.removeValue(forKey: pid)
+    }
+
+    /// Sweep every finished entry. Real bash's interactive loop runs
+    /// the equivalent at each prompt so old `&` jobs don't accumulate
+    /// in `jobs` / `ps`. Embedders that drive a REPL can call this
+    /// between commands; the non-interactive path doesn't need it
+    /// because `wait` reaps as it goes.
+    public func reapAllFinished() {
+        for (pid, entry) in entries where entry.state != .running {
+            entries.removeValue(forKey: pid)
+            tasks.removeValue(forKey: pid)
+        }
     }
 
     /// Cancel the Task at `pid`. Cooperative — the Task must observe
