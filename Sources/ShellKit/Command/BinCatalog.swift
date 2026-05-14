@@ -66,7 +66,27 @@ public enum BinCatalog {
         // Third-party commonly-installed utilities (Homebrew /
         // user-installed). We slot them under /usr/local/bin so
         // their location matches the convention macOS users expect.
-        for name in ["rg", "yq"] {
+        for name in [
+            "rg", "yq",
+            // SwiftPorts CLI surface — git/gh/glab and the
+            // compression family ship via the BashCommandKit /
+            // SwiftPorts registration, but `which` and `compgen -c`
+            // still need a canonical path entry to find them.
+            "git", "gh", "glab",
+            "zip", "unzip",
+            "bzip2", "bunzip2", "bzcat",
+            "zstd", "unzstd", "zstdcat",
+            "xz", "unxz", "xzcat",
+            "lz4", "unlz4", "lz4cat", "zcat",
+            // In-process script interpreters. Both routes work —
+            // `swift-js hello.js` finds the closure command in
+            // `shell.commands`, and `#!/usr/bin/env swift-js` finds
+            // the matching ``ScriptInterpreter`` — and they share
+            // backing logic. The catalog entry is here so
+            // `which swift-js` reports `/usr/local/bin/swift-js`
+            // rather than dropping back to "not found".
+            "swift", "swift-script", "swift-js", "node", "bun",
+        ] {
             m[name] = "/usr/local/bin/\(name)"
         }
 
