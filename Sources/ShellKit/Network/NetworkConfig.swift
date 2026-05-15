@@ -114,8 +114,7 @@ public struct NetworkResponse: Sendable {
 
     public init(status: Int, statusText: String,
                 headers: [String: String], body: Data,
-                finalURL: URL)
-    {
+                finalURL: URL) {
         self.status = status
         self.statusText = statusText
         self.headers = headers
@@ -163,10 +162,10 @@ public enum NetworkError: Error, CustomStringConvertible, Sendable, Equatable {
             return "Too many redirects (max: \(max))"
         case .privateAddress(let url, let reason):
             return "Network access denied: \(reason): \(url)"
-        case .invalidURL(let s):
-            return "Could not parse URL: \(s)"
-        case .transport(let m):
-            return m
+        case .invalidURL(let raw):
+            return "Could not parse URL: \(raw)"
+        case .transport(let message):
+            return message
         case .timedOut:
             return "Request timed out"
         }

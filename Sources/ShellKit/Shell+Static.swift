@@ -59,7 +59,7 @@ public extension Shell {
     // shell — a standalone CLI just wants the host's directories.
 
     static var homeDirectory: URL {
-        if let sb = current.sandbox { return sb.homeDirectory }
+        if let sandbox = current.sandbox { return sandbox.homeDirectory }
         #if os(iOS) || os(tvOS) || os(watchOS) || os(visionOS)
         return URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
         #else
@@ -73,14 +73,14 @@ public extension Shell {
     }
 
     static var cachesDirectory: URL {
-        if let sb = current.sandbox { return sb.cachesDirectory }
+        if let sandbox = current.sandbox { return sandbox.cachesDirectory }
         return FileManager.default
             .urls(for: .cachesDirectory, in: .userDomainMask).first
             ?? FileManager.default.temporaryDirectory
     }
 
     static var documentsDirectory: URL {
-        if let sb = current.sandbox { return sb.documentsDirectory }
+        if let sandbox = current.sandbox { return sandbox.documentsDirectory }
         return FileManager.default
             .urls(for: .documentDirectory, in: .userDomainMask).first
             ?? homeDirectory.appendingPathComponent(
@@ -88,7 +88,7 @@ public extension Shell {
     }
 
     static var downloadsDirectory: URL {
-        if let sb = current.sandbox { return sb.downloadsDirectory }
+        if let sandbox = current.sandbox { return sandbox.downloadsDirectory }
         return FileManager.default
             .urls(for: .downloadsDirectory, in: .userDomainMask).first
             ?? homeDirectory.appendingPathComponent(
@@ -96,7 +96,7 @@ public extension Shell {
     }
 
     static var libraryDirectory: URL {
-        if let sb = current.sandbox { return sb.libraryDirectory }
+        if let sandbox = current.sandbox { return sandbox.libraryDirectory }
         return FileManager.default
             .urls(for: .libraryDirectory, in: .userDomainMask).first
             ?? homeDirectory.appendingPathComponent(
@@ -104,7 +104,7 @@ public extension Shell {
     }
 
     static var moviesDirectory: URL {
-        if let sb = current.sandbox { return sb.moviesDirectory }
+        if let sandbox = current.sandbox { return sandbox.moviesDirectory }
         return FileManager.default
             .urls(for: .moviesDirectory, in: .userDomainMask).first
             ?? homeDirectory.appendingPathComponent(
@@ -112,7 +112,7 @@ public extension Shell {
     }
 
     static var musicDirectory: URL {
-        if let sb = current.sandbox { return sb.musicDirectory }
+        if let sandbox = current.sandbox { return sandbox.musicDirectory }
         return FileManager.default
             .urls(for: .musicDirectory, in: .userDomainMask).first
             ?? homeDirectory.appendingPathComponent(
@@ -120,7 +120,7 @@ public extension Shell {
     }
 
     static var picturesDirectory: URL {
-        if let sb = current.sandbox { return sb.picturesDirectory }
+        if let sandbox = current.sandbox { return sandbox.picturesDirectory }
         return FileManager.default
             .urls(for: .picturesDirectory, in: .userDomainMask).first
             ?? homeDirectory.appendingPathComponent(
@@ -128,7 +128,7 @@ public extension Shell {
     }
 
     static var sharedPublicDirectory: URL {
-        if let sb = current.sandbox { return sb.sharedPublicDirectory }
+        if let sandbox = current.sandbox { return sandbox.sharedPublicDirectory }
         return FileManager.default
             .urls(for: .sharedPublicDirectory, in: .userDomainMask).first
             ?? homeDirectory.appendingPathComponent(
@@ -136,7 +136,7 @@ public extension Shell {
     }
 
     static var trashDirectory: URL {
-        if let sb = current.sandbox { return sb.trashDirectory }
+        if let sandbox = current.sandbox { return sandbox.trashDirectory }
         return FileManager.default
             .urls(for: .trashDirectory, in: .userDomainMask).first
             ?? homeDirectory.appendingPathComponent(
@@ -144,7 +144,7 @@ public extension Shell {
     }
 
     static var userDirectory: URL {
-        if let sb = current.sandbox { return sb.userDirectory }
+        if let sandbox = current.sandbox { return sandbox.userDirectory }
         return FileManager.default
             .urls(for: .userDirectory, in: .userDomainMask).first
             ?? homeDirectory
@@ -166,8 +166,7 @@ public extension Shell {
     /// replace `print(` with `Shell.print(`.
     static func print(_ items: Any...,
                       separator: String = " ",
-                      terminator: String = "\n")
-    {
+                      terminator: String = "\n") {
         var rendered = ""
         var first = true
         for item in items {

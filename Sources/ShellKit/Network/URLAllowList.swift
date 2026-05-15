@@ -86,12 +86,9 @@ public enum URLAllowList {
 
     /// Does `url` match *any* entry?
     public static func isAllowed(_ url: String,
-                                 entries: [AllowedURLEntry]) -> Bool
-    {
-        for entry in entries {
-            if matches(url: url, entry: entry.url) {
-                return true
-            }
+                                 entries: [AllowedURLEntry]) -> Bool {
+        for entry in entries where matches(url: url, entry: entry.url) {
+            return true
         }
         return false
     }
@@ -108,9 +105,9 @@ public enum URLAllowList {
         for entry in entries where !entry.transforms.isEmpty {
             if matches(url: url, entry: entry.url) {
                 any = true
-                for t in entry.transforms {
-                    for (k, v) in t.headers {
-                        merged[k] = v
+                for transform in entry.transforms {
+                    for (key, value) in transform.headers {
+                        merged[key] = value
                     }
                 }
             }
@@ -123,8 +120,8 @@ public enum URLAllowList {
     /// Minimal URL parser used by the allow-list. Returns `nil` for
     /// malformed input. Lowercases the scheme and host (per RFC 3986)
     /// for stable comparison; preserves the path verbatim.
-    public static func parseURL(_ s: String) -> ParsedURL? {
-        guard let url = URL(string: s),
+    public static func parseURL(_ raw: String) -> ParsedURL? {
+        guard let url = URL(string: raw),
               let scheme = url.scheme?.lowercased(),
               let host = url.host?.lowercased(),
               !host.isEmpty
@@ -134,7 +131,7 @@ public enum URLAllowList {
         // check can spot `%2f` / `%5c`, which `URL.path` would
         // already have decoded away).
         let path = url.path
-        let rawPath = URLComponents(string: s)?.percentEncodedPath ?? path
+        let rawPath = URLComponents(string: raw)?.percentEncodedPath ?? path
         var origin = "\(scheme)://\(host)"
         if let port = url.port { origin += ":\(port)" }
         return ParsedURL(scheme: scheme, host: host, path: path,

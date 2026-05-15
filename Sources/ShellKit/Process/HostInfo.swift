@@ -101,41 +101,24 @@ public struct HostInfo: Sendable, Equatable {
     public static func real() -> HostInfo {
         let info = ProcessInfo.processInfo
         #if !os(Windows)
-        // `ProcessInfo.userName` and `fullUserName` are macOS-only —
-        // iOS / tvOS / watchOS don't expose them. Fall back to the
-        // POSIX uid → name lookup, then to a generic "user".
-        #if os(macOS)
-        let user = info.userName
-        let full = info.fullUserName.isEmpty ? user : info.fullUserName
-        #else
-        let user = passwdUserName(uid: UInt32(getuid())) ?? "user"
-        let full = user
-        #endif
-        let host = info.hostName
+        let (user, full) = realUserAndFull(info: info)
         let uid = UInt32(getuid())
         let gid = UInt32(getgid())
-        // Get supplementary groups via getgroups(2). Cap at NGROUPS_MAX.
-        var groups: [UInt32] = [gid]
-        var buf = [gid_t](repeating: 0, count: 64)
-        let n = getgroups(Int32(buf.count), &buf)
-        if n > 0 {
-            groups = (0..<Int(n)).map { UInt32(buf[$0]) }
-        }
         let groupName = realGroupName(for: gid) ?? "staff"
-        let (sysname, release, version, machine, node) = realUname()
+        let uts = realUname()
         return HostInfo(
             userName: user,
             fullUserName: full,
-            hostName: host,
+            hostName: info.hostName,
             uid: uid,
             gid: gid,
-            groups: groups,
+            groups: realSupplementaryGroups(gid: gid),
             groupName: groupName,
-            kernelName: sysname,
-            kernelRelease: release,
-            kernelVersion: version,
-            machine: machine,
-            nodeName: node)
+            kernelName: uts.sysname,
+            kernelRelease: uts.release,
+            kernelVersion: uts.version,
+            machine: uts.machine,
+            nodeName: uts.node)
         #else
         let user = winUserName() ?? (info.userName.isEmpty ? "user" : info.userName)
         let host = winComputerName() ?? info.hostName
@@ -156,15 +139,42 @@ public struct HostInfo: Sendable, Equatable {
         #endif
     }
 
+    #if !os(Windows)
+    /// `ProcessInfo.userName` / `fullUserName` are macOS-only —
+    /// iOS / tvOS / watchOS don't expose them. Fall back to the
+    /// POSIX uid → name lookup, then to a generic "user".
+    private static func realUserAndFull(info: ProcessInfo) -> (user: String, full: String) {
+        #if os(macOS)
+        let user = info.userName
+        let full = info.fullUserName.isEmpty ? user : info.fullUserName
+        #else
+        let user = passwdUserName(uid: UInt32(getuid())) ?? "user"
+        let full = user
+        #endif
+        return (user, full)
+    }
+
+    /// Supplementary groups via `getgroups(2)`. Cap at 64 (the
+    /// NGROUPS_MAX floor on every supported platform).
+    private static func realSupplementaryGroups(gid: UInt32) -> [UInt32] {
+        var buf = [gid_t](repeating: 0, count: 64)
+        let count = getgroups(Int32(buf.count), &buf)
+        if count > 0 {
+            return (0..<Int(count)).map { UInt32(buf[$0]) }
+        }
+        return [gid]
+    }
+    #endif
+
     #if os(Windows)
     /// Real Windows account name via `GetUserNameW`.
     private static func winUserName() -> String? {
         var bufSize: DWORD = 256
         var buf = [WCHAR](repeating: 0, count: Int(bufSize))
-        let ok = buf.withUnsafeMutableBufferPointer { bp -> Bool in
-            GetUserNameW(bp.baseAddress, &bufSize)
+        let success = buf.withUnsafeMutableBufferPointer { buffer -> Bool in
+            GetUserNameW(buffer.baseAddress, &bufSize)
         }
-        guard ok, bufSize > 1 else { return nil }
+        guard success, bufSize > 1 else { return nil }
         // bufSize includes the trailing NUL — drop it.
         return String(decoding: buf.prefix(Int(bufSize) - 1), as: UTF16.self)
     }
@@ -173,10 +183,10 @@ public struct HostInfo: Sendable, Equatable {
     private static func winComputerName() -> String? {
         var bufSize: DWORD = DWORD(MAX_COMPUTERNAME_LENGTH + 1)
         var buf = [WCHAR](repeating: 0, count: Int(bufSize))
-        let ok = buf.withUnsafeMutableBufferPointer { bp -> Bool in
-            GetComputerNameW(bp.baseAddress, &bufSize)
+        let success = buf.withUnsafeMutableBufferPointer { buffer -> Bool in
+            GetComputerNameW(buffer.baseAddress, &bufSize)
         }
-        guard ok, bufSize > 0 else { return nil }
+        guard success, bufSize > 0 else { return nil }
         return String(decoding: buf.prefix(Int(bufSize)), as: UTF16.self)
     }
 
@@ -184,8 +194,8 @@ public struct HostInfo: Sendable, Equatable {
     /// Foundation `OperatingSystemVersion` (cheaper than calling
     /// `RtlGetVersion` and lying-via-AppCompat-shim safe).
     private static func winKernelInfo() -> (release: String, machine: String) {
-        let v = ProcessInfo.processInfo.operatingSystemVersion
-        let release = "\(v.majorVersion).\(v.minorVersion).\(v.patchVersion)"
+        let osVersion = ProcessInfo.processInfo.operatingSystemVersion
+        let release = "\(osVersion.majorVersion).\(osVersion.minorVersion).\(osVersion.patchVersion)"
 
         var sysInfo = SYSTEM_INFO()
         GetNativeSystemInfo(&sysInfo)
@@ -217,18 +227,29 @@ public struct HostInfo: Sendable, Equatable {
         return String(cString: name)
     }
 
-    private static func realUname() -> (String, String, String, String, String) {
-        var u = utsname()
-        guard uname(&u) == 0 else {
-            return ("Darwin", "0.0.0", "swift-bash", "arm64", "sandbox")
+    /// Result of `uname(3)`. Natural shape is a 5-tuple but
+    /// `large_tuple` caps returns at 2.
+    private struct UnameInfo {
+        let sysname: String
+        let release: String
+        let version: String
+        let machine: String
+        let node: String
+    }
+
+    private static func realUname() -> UnameInfo {
+        var uts = utsname()
+        guard uname(&uts) == 0 else {
+            return UnameInfo(sysname: "Darwin", release: "0.0.0",
+                             version: "swift-bash", machine: "arm64",
+                             node: "sandbox")
         }
-        return (
-            cString(of: &u.sysname),
-            cString(of: &u.release),
-            cString(of: &u.version),
-            cString(of: &u.machine),
-            cString(of: &u.nodename)
-        )
+        return UnameInfo(
+            sysname: cString(of: &uts.sysname),
+            release: cString(of: &uts.release),
+            version: cString(of: &uts.version),
+            machine: cString(of: &uts.machine),
+            node: cString(of: &uts.nodename))
     }
 
     /// Convert a `utsname`-style fixed-size CChar tuple to a String.

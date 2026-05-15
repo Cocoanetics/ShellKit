@@ -31,15 +31,15 @@ public enum BinCatalog {
     /// Map of command name → canonical absolute path. Names not in
     /// this map are treated as shell-only built-ins.
     public static let knownPaths: [String: String] = {
-        var m: [String: String] = [:]
+        var paths: [String: String] = [:]
 
         // /bin — the small set of commands macOS keeps in /bin.
         for name in [
             "bash", "cat", "chmod", "cp", "dash", "date", "dd", "df",
             "echo", "expr", "hostname", "kill", "link", "ln", "ls",
             "mkdir", "mv", "ps", "pwd", "realpath", "rm", "rmdir",
-            "sh", "sleep", "stty", "sync", "test", "[", "unlink",
-        ] { m[name] = "/bin/\(name)" }
+            "sh", "sleep", "stty", "sync", "test", "[", "unlink"
+        ] { paths[name] = "/bin/\(name)" }
 
         // /usr/bin — everything else we ship that would normally be
         // installed there on macOS. The trailing group (`clear`,
@@ -60,8 +60,8 @@ public enum BinCatalog {
             "timeout", "touch", "tr", "tree", "true", "truncate",
             "uname", "unexpand", "uniq", "wait", "wc", "which",
             "whoami", "xargs", "xattr", "xxd", "yes",
-            "clear", "open", "pbcopy", "pbpaste", "say",
-        ] { m[name] = "/usr/bin/\(name)" }
+            "clear", "open", "pbcopy", "pbpaste", "say"
+        ] { paths[name] = "/usr/bin/\(name)" }
 
         // Third-party commonly-installed utilities (Homebrew /
         // user-installed). We slot them under /usr/local/bin so
@@ -85,9 +85,9 @@ public enum BinCatalog {
             // backing logic. The catalog entry is here so
             // `which swift-js` reports `/usr/local/bin/swift-js`
             // rather than dropping back to "not found".
-            "swift", "swift-script", "swift-js", "node", "bun",
+            "swift", "swift-script", "swift-js", "node", "bun"
         ] {
-            m[name] = "/usr/local/bin/\(name)"
+            paths[name] = "/usr/local/bin/\(name)"
         }
 
         // Embedder-supplied CLIs that ship as primary system tools
@@ -96,12 +96,12 @@ public enum BinCatalog {
         // on whether the host shell registers it; this entry just
         // declares where it WOULD live on a hypothetical "real"
         // install.
-        m["coder"] = "/usr/bin/coder"
+        paths["coder"] = "/usr/bin/coder"
 
         // `curl` ships at /usr/bin/curl on macOS.
-        m["curl"] = "/usr/bin/curl"
+        paths["curl"] = "/usr/bin/curl"
 
-        return m
+        return paths
     }()
 
     /// All directories that contain at least one entry. Drives the

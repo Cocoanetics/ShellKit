@@ -25,8 +25,7 @@ public struct Environment: Hashable, Sendable {
     public init(variables: [String: String] = [:],
                 arrays: [String: BashArray] = [:],
                 associativeArrays: [String: [String: String]] = [:],
-                workingDirectory: String = FileManager.default.currentDirectoryPath)
-    {
+                workingDirectory: String = FileManager.default.currentDirectoryPath) {
         self.variables = variables
         self.arrays = arrays
         self.associativeArrays = associativeArrays
@@ -75,7 +74,7 @@ public struct Environment: Hashable, Sendable {
             "SHELL": "/bin/sh",
             "TERM": "dumb",
             "LANG": "C.UTF-8",
-            "LC_ALL": "C.UTF-8",
+            "LC_ALL": "C.UTF-8"
         ]
         return Environment(variables: vars,
                            workingDirectory: workingDirectory)
@@ -98,7 +97,7 @@ public struct BashArray: Hashable, Sendable {
     /// Build a dense array from a Swift `[String]` — indices 0..count-1.
     public init(dense values: [String]) {
         var dict: [Int: String] = [:]
-        for (i, v) in values.enumerated() { dict[i] = v }
+        for (index, value) in values.enumerated() { dict[index] = value }
         self.entries = dict
     }
 
@@ -124,8 +123,8 @@ public struct BashArray: Hashable, Sendable {
     /// appends starting at 0, matching bash.
     public mutating func append(_ values: [String]) {
         var next = (entries.keys.max() ?? -1) + 1
-        for v in values {
-            entries[next] = v
+        for value in values {
+            entries[next] = value
             next += 1
         }
     }

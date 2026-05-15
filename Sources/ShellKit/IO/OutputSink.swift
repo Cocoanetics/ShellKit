@@ -85,6 +85,8 @@ public final class OutputSink: @unchecked Sendable {
     /// UTF-8 decode of the drained stream, lossily replacing invalid
     /// sequences.
     public func readAllString() async -> String {
+        // Lossy decode by design — see type doc on permissive UTF-8.
+        // swiftlint:disable:next optional_data_string_conversion
         String(decoding: await readAllData(), as: UTF8.self)
     }
 
@@ -95,10 +97,13 @@ public final class OutputSink: @unchecked Sendable {
             Task {
                 var pending = ""
                 for await chunk in bytes {
+                    // Chunks may split a multibyte char at the boundary;
+                    // lossy decode by design.
+                    // swiftlint:disable:next optional_data_string_conversion
                     pending += String(decoding: chunk, as: UTF8.self)
-                    while let nl = pending.range(of: "\n") {
-                        let line = String(pending[..<nl.lowerBound])
-                        pending.removeSubrange(pending.startIndex..<nl.upperBound)
+                    while let newline = pending.range(of: "\n") {
+                        let line = String(pending[..<newline.lowerBound])
+                        pending.removeSubrange(pending.startIndex..<newline.upperBound)
                         continuation.yield(line)
                     }
                 }

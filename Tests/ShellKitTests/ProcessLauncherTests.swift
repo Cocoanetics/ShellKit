@@ -71,7 +71,7 @@ private let supportsPosixShell: Bool = {
         #expect(record.terminationStatus.isSuccess)
         #expect(record.terminationStatus == .exited(0))
 
-        let out = String(decoding: record.standardOutput, as: UTF8.self)
+        let out = String(bytes: record.standardOutput, encoding: .utf8) ?? ""
         // `echo hi` adds a trailing newline.
         #expect(out == "hi\n")
 
@@ -99,7 +99,7 @@ private let supportsPosixShell: Bool = {
             error: stderr)
 
         #expect(record.terminationStatus.isSuccess)
-        let errText = String(decoding: record.standardError, as: UTF8.self)
+        let errText = String(bytes: record.standardError, encoding: .utf8) ?? ""
         #expect(errText == "to-err\n")
 
         stderr.finish()
@@ -144,7 +144,7 @@ private let supportsPosixShell: Bool = {
             error: OutputSink())
 
         #expect(record.terminationStatus.isSuccess)
-        let out = String(decoding: record.standardOutput, as: UTF8.self)
+        let out = String(bytes: record.standardOutput, encoding: .utf8) ?? ""
         #expect(out == "hello-from-shellkit")
     }
 
@@ -170,7 +170,7 @@ private let supportsPosixShell: Bool = {
             error: OutputSink())
 
         #expect(record.terminationStatus.isSuccess)
-        let out = String(decoding: record.standardOutput, as: UTF8.self)
+        let out = (String(bytes: record.standardOutput, encoding: .utf8) ?? "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
         // Bypass /var → /private/var canonicalisation pitfalls by
         // anchoring on the unique component we created.
@@ -193,7 +193,7 @@ private let supportsPosixShell: Bool = {
             error: OutputSink())
 
         #expect(record.terminationStatus.isSuccess)
-        let out = String(decoding: record.standardOutput, as: UTF8.self)
+        let out = String(bytes: record.standardOutput, encoding: .utf8) ?? ""
         #expect(out == "piped-in")
     }
 
@@ -235,8 +235,8 @@ private let supportsPosixShell: Bool = {
             Issue.record("expected ProcessLaunchDenied")
         } catch let denial as ProcessLaunchDenied {
             #expect(denial.reason == "test deny")
-            if case .name(let n) = denial.executable.storage {
-                #expect(n == "echo")
+            if case .name(let name) = denial.executable.storage {
+                #expect(name == "echo")
             } else {
                 Issue.record("unexpected executable storage")
             }
@@ -271,6 +271,8 @@ private let supportsPosixShell: Bool = {
     /// record — and throws ``ProcessLaunchUnresolved`` for everything
     /// else, so ``ChainLauncher`` falls through to the tail.
     private struct OnlyFooLauncher: ProcessLauncher {
+        // Mirrors the ProcessLauncher protocol signature.
+        // swiftlint:disable:next function_parameter_count
         func launch(
             _ executable: Executable,
             arguments: Arguments,
@@ -309,7 +311,7 @@ private let supportsPosixShell: Bool = {
             error: OutputSink())
 
         #expect(record.terminationStatus == .exited(0))
-        let out = String(decoding: record.standardOutput, as: UTF8.self)
+        let out = String(bytes: record.standardOutput, encoding: .utf8) ?? ""
         #expect(out == "foo-builtin\n")
     }
 
@@ -331,7 +333,7 @@ private let supportsPosixShell: Bool = {
             output: fooOut,
             error: OutputSink())
         #expect(fooRec.terminationStatus == .exited(0))
-        let fooText = String(decoding: fooRec.standardOutput, as: UTF8.self)
+        let fooText = String(bytes: fooRec.standardOutput, encoding: .utf8) ?? ""
         #expect(fooText == "foo-builtin\n")
 
         // `echo` falls through to the real exec engine.
@@ -345,7 +347,7 @@ private let supportsPosixShell: Bool = {
             output: echoOut,
             error: OutputSink())
         #expect(echoRec.terminationStatus.isSuccess)
-        let echoText = String(decoding: echoRec.standardOutput, as: UTF8.self)
+        let echoText = String(bytes: echoRec.standardOutput, encoding: .utf8) ?? ""
         #expect(echoText == "chained\n")
     }
 

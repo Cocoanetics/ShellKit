@@ -32,8 +32,7 @@ public struct NetworkRequest: Sendable {
                 method: String,
                 headers: [String: String] = [:],
                 body: Data? = nil,
-                timeoutSeconds: TimeInterval = 30)
-    {
+                timeoutSeconds: TimeInterval = 30) {
         self.url = url
         self.method = method
         self.headers = headers
@@ -78,7 +77,9 @@ public struct URLSessionFetcher: NetworkFetcher, @unchecked Sendable {
                                 cachePolicy: .reloadIgnoringLocalAndRemoteCacheData,
                                 timeoutInterval: request.timeoutSeconds)
         urlReq.httpMethod = request.method
-        for (k, v) in request.headers { urlReq.setValue(v, forHTTPHeaderField: k) }
+        for (key, value) in request.headers {
+            urlReq.setValue(value, forHTTPHeaderField: key)
+        }
         if let body = request.body { urlReq.httpBody = body }
 
         let (data, response): (Data, URLResponse)
@@ -94,12 +95,12 @@ public struct URLSessionFetcher: NetworkFetcher, @unchecked Sendable {
             throw NetworkError.transport(message: "non-HTTP response")
         }
         var headers: [String: String] = [:]
-        for (key, value) in http.allHeaderFields {
-            if let k = key as? String, let v = value as? String {
+        for (rawKey, rawValue) in http.allHeaderFields {
+            if let key = rawKey as? String, let value = rawValue as? String {
                 // Header names are case-insensitive in HTTP. Normalise to
                 // canonical form (Title-Case-With-Hyphens) so callers can
                 // look them up without guessing.
-                headers[canonicalize(headerName: k)] = v
+                headers[canonicalize(headerName: key)] = value
             }
         }
         return NetworkResponse(
@@ -115,15 +116,14 @@ public struct URLSessionFetcher: NetworkFetcher, @unchecked Sendable {
         // "content-length" → "Content-Length"
         let parts = headerName.split(separator: "-",
                                      omittingEmptySubsequences: false)
-        return parts.map { p -> String in
-            guard let first = p.first else { return "" }
-            return String(first).uppercased() + p.dropFirst().lowercased()
+        return parts.map { part -> String in
+            guard let first = part.first else { return "" }
+            return String(first).uppercased() + part.dropFirst().lowercased()
         }.joined(separator: "-")
     }
 
     private final class NoRedirectDelegate: NSObject,
-        URLSessionTaskDelegate, @unchecked Sendable
-    {
+        URLSessionTaskDelegate, @unchecked Sendable {
         func urlSession(
             _ session: URLSession, task: URLSessionTask,
             willPerformHTTPRedirection response: HTTPURLResponse,
