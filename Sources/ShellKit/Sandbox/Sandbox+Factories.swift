@@ -154,10 +154,8 @@ extension Sandbox {
     ) throws {
         if url.isFileURL {
             let candidate = canonicalizeForCheck(url.path)
-            for root in canonicalRoots {
-                if pathHasPrefix(candidate, prefix: root) {
-                    return
-                }
+            for root in canonicalRoots where pathHasPrefix(candidate, prefix: root) {
+                return
             }
             // Build a hint pointing at where, conceptually, this URL
             // would land under the first root. Built from the

@@ -53,14 +53,14 @@ public struct InputSource: Sendable {
     }()
 
     /// A stream that yields a single UTF-8-encoded chunk then finishes.
-    public static func string(_ s: String) -> InputSource {
-        .data(Data(s.utf8))
+    public static func string(_ text: String) -> InputSource {
+        .data(Data(text.utf8))
     }
 
     /// A stream that yields one `Data` chunk then finishes.
-    public static func data(_ d: Data) -> InputSource {
+    public static func data(_ data: Data) -> InputSource {
         let (stream, cont) = AsyncStream<Data>.makeStream()
-        if !d.isEmpty { cont.yield(d) }
+        if !data.isEmpty { cont.yield(data) }
         cont.finish()
         return InputSource(bytes: stream)
     }
@@ -81,6 +81,8 @@ public struct InputSource: Sendable {
     /// command is fed binary data).
     public func readAllString() async -> String {
         let data = await readAllData()
+        // Lossy decode by design — see type doc on permissive UTF-8.
+        // swiftlint:disable:next optional_data_string_conversion
         return String(decoding: data, as: UTF8.self)
     }
 
@@ -101,13 +103,18 @@ public struct InputSource: Sendable {
 
         func readLine() async -> String? {
             while true {
-                if let nl = pending.firstIndex(of: 0x0A) {
-                    let line = pending[pending.startIndex..<nl]
-                    pending.removeSubrange(pending.startIndex..<(nl + 1))
+                if let newline = pending.firstIndex(of: 0x0A) {
+                    let line = pending[pending.startIndex..<newline]
+                    pending.removeSubrange(pending.startIndex..<(newline + 1))
+                    // Lossy decode — line may carry non-UTF-8 bytes from
+                    // a binary stream; mirror bash's permissiveness.
+                    // swiftlint:disable:next optional_data_string_conversion
                     return String(decoding: line, as: UTF8.self)
                 }
                 if atEOF {
                     if pending.isEmpty { return nil }
+                    // Same lossy contract for the final partial line.
+                    // swiftlint:disable:next optional_data_string_conversion
                     let line = String(decoding: pending, as: UTF8.self)
                     pending.removeAll()
                     return line
@@ -119,9 +126,9 @@ public struct InputSource: Sendable {
                 if iterator == nil {
                     iterator = bytes.makeAsyncIterator()
                 }
-                var it = iterator!
-                let chunk = await it.next()
-                iterator = it
+                var iter = iterator!
+                let chunk = await iter.next()
+                iterator = iter
                 if let chunk {
                     pending.append(chunk)
                 } else {
@@ -152,6 +159,9 @@ public struct InputSource: Sendable {
                 var pending = ""
                 for await chunk in upstream {
                     if Task.isCancelled { break }
+                    // Chunks may split a multibyte char at the boundary;
+                    // lossy decode by design.
+                    // swiftlint:disable:next optional_data_string_conversion
                     pending += String(decoding: chunk, as: UTF8.self)
                     while let nlRange = pending.range(of: "\n") {
                         let line = String(pending[..<nlRange.lowerBound])

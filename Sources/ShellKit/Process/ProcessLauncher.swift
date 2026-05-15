@@ -51,7 +51,12 @@ public protocol ProcessLauncher: Sendable {
     ///   ``ProcessLaunchUnsupportedOnThisPlatform`` (real exec is
     ///   unavailable on iOS / tvOS / watchOS / visionOS), or any
     ///   transport error from the underlying engine.
-    func launch(
+    ///
+    /// The 7-parameter signature mirrors the POSIX exec model
+    /// (program + args + env + cwd + stdin + stdout + stderr).
+    /// Bundling these into a struct would be a breaking protocol
+    /// change for every ShellKit consumer for no behavioural gain.
+    func launch( // swiftlint:disable:this function_parameter_count
         _ executable: Executable,
         arguments: Arguments,
         environment: Environment,

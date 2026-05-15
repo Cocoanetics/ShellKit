@@ -39,8 +39,8 @@ public struct Executable: Sendable, Hashable {
     /// The string form a user would type — name or path.
     public var description: String {
         switch storage {
-        case .name(let n): return n
-        case .path(let p): return p
+        case .name(let name): return name
+        case .path(let path): return path
         }
     }
 }

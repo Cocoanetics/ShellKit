@@ -53,6 +53,11 @@ public struct DefaultProcessLauncher: ProcessLauncher {
         self.bufferLimit = bufferLimit
     }
 
+    // The launch contract mirrors the POSIX exec model (program +
+    // args + env + cwd + stdin + stdout + stderr). Bundling into a
+    // struct would break every conformer and downstream consumer for
+    // no behavioural gain.
+    // swiftlint:disable:next function_parameter_count
     public func launch(
         _ executable: Executable,
         arguments: Arguments,
@@ -64,43 +69,13 @@ public struct DefaultProcessLauncher: ProcessLauncher {
     ) async throws -> ExecutionRecord {
         #if canImport(Subprocess)
         // Drain stdin upfront. v1 doesn't stream — see type doc.
-        var inputBytes: [UInt8] = []
-        for await chunk in input.bytes {
-            inputBytes.append(contentsOf: chunk)
-        }
+        let inputBytes = await collectInputBytes(input)
 
-        let exe: Subprocess.Executable
-        switch executable.storage {
-        case .name(let name): exe = .name(name)
-        case .path(let p):    exe = .path(FilePath(p))
-        }
-
+        let exe = subprocessExecutable(from: executable)
         let args = Subprocess.Arguments(arguments.values)
-
-        // Mirror ShellKit's ``Environment/variables`` into a custom
-        // subprocess environment. `.custom` rather than `.inherit`
-        // because the embedder is the source of truth — anything that
-        // should leak through from `ProcessInfo.processInfo.environment`
-        // is already in `Shell.processDefault.environment.variables`.
-        // ``Subprocess.Environment.Key.init(_:)`` is package-private;
-        // the public path is its `ExpressibleByStringLiteral` init.
-        var envMap: [Subprocess.Environment.Key: String] = [:]
-        for (k, v) in environment.variables {
-            envMap[Subprocess.Environment.Key(stringLiteral: k)] = v
-        }
-        let subprocessEnv = Subprocess.Environment.custom(envMap)
-
-        // Resolve working directory. Explicit override wins; otherwise
-        // fall back to the shell's `environment.workingDirectory` if
-        // set; otherwise pass nil so the host's CWD is inherited.
-        let cwd: FilePath? = {
-            if let wd = workingDirectory, !wd.isEmpty {
-                return FilePath(wd)
-            }
-            let envCwd = environment.workingDirectory
-            if !envCwd.isEmpty { return FilePath(envCwd) }
-            return nil
-        }()
+        let subprocessEnv = subprocessEnvironment(from: environment)
+        let cwd = resolveWorkingDirectory(
+            override: workingDirectory, environment: environment)
 
         let record = try await Subprocess.run(
             exe,
@@ -138,4 +113,50 @@ public struct DefaultProcessLauncher: ProcessLauncher {
         throw ProcessLaunchUnsupportedOnThisPlatform(executable: executable)
         #endif
     }
+
+    #if canImport(Subprocess)
+    private func collectInputBytes(_ input: InputSource) async -> [UInt8] {
+        var inputBytes: [UInt8] = []
+        for await chunk in input.bytes {
+            inputBytes.append(contentsOf: chunk)
+        }
+        return inputBytes
+    }
+
+    private func subprocessExecutable(from executable: Executable) -> Subprocess.Executable {
+        switch executable.storage {
+        case .name(let name): return .name(name)
+        case .path(let path): return .path(FilePath(path))
+        }
+    }
+
+    /// Mirror ShellKit's ``Environment/variables`` into a custom
+    /// subprocess environment. `.custom` rather than `.inherit`
+    /// because the embedder is the source of truth — anything that
+    /// should leak through from `ProcessInfo.processInfo.environment`
+    /// is already in `Shell.processDefault.environment.variables`.
+    /// ``Subprocess.Environment.Key.init(_:)`` is package-private;
+    /// the public path is its `ExpressibleByStringLiteral` init.
+    private func subprocessEnvironment(from environment: Environment) -> Subprocess.Environment {
+        var envMap: [Subprocess.Environment.Key: String] = [:]
+        for (key, value) in environment.variables {
+            envMap[Subprocess.Environment.Key(stringLiteral: key)] = value
+        }
+        return Subprocess.Environment.custom(envMap)
+    }
+
+    /// Explicit override wins; otherwise fall back to the shell's
+    /// `environment.workingDirectory` if set; otherwise pass nil so
+    /// the host's CWD is inherited.
+    private func resolveWorkingDirectory(
+        override: String?, environment: Environment
+    ) -> FilePath? {
+        if let dir = override, !dir.isEmpty {
+            return FilePath(dir)
+        }
+        let envCwd = environment.workingDirectory
+        if !envCwd.isEmpty { return FilePath(envCwd) }
+        return nil
+    }
+    #endif
 }

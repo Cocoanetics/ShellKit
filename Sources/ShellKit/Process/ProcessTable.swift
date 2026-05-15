@@ -22,6 +22,9 @@ public actor ProcessTable {
     /// or `.failed` when the Task completes; never removed (so `$!`
     /// references survive after the Task is done, matching bash).
     public struct Entry: Sendable {
+        // `Entry.State` is the meaningful name for callers; lifting it
+        // out would lose that grouping without buying anything.
+        // swiftlint:disable:next nesting
         public enum State: Sendable, Equatable {
             case running
             case exited(ExitStatus)
@@ -40,7 +43,7 @@ public actor ProcessTable {
     /// errors never need to escape the Task boundary.
     private var tasks: [Int32: Task<TaskOutcome, Never>] = [:]
     /// Most-recently-spawned PID — what `$!` resolves to.
-    public private(set) var lastBackgroundPID: Int32? = nil
+    public private(set) var lastBackgroundPID: Int32?
 
     public init(startingAt: Int32 = 1000) {
         self.nextPID = startingAt
@@ -69,8 +72,8 @@ public actor ProcessTable {
         // a (status, state) pair keeps that quiet.
         let task = Task<TaskOutcome, Never> {
             do {
-                let s = try await body()
-                return TaskOutcome(status: s, state: .exited(s))
+                let status = try await body()
+                return TaskOutcome(status: status, state: .exited(status))
             } catch is CancellationError {
                 return TaskOutcome(status: ExitStatus(143), state: .cancelled)
             } catch {
@@ -109,9 +112,9 @@ public actor ProcessTable {
     public func wait(pid: Int32) async -> ExitStatus? {
         if let entry = entries[pid] {
             switch entry.state {
-            case .exited(let s):
+            case .exited(let status):
                 reap(pid: pid)
-                return s
+                return status
             case .failed:
                 reap(pid: pid)
                 return ExitStatus(1)
@@ -147,7 +150,7 @@ public actor ProcessTable {
         let pending = entries.keys.sorted()
         var last = ExitStatus.success
         for pid in pending {
-            if let s = await wait(pid: pid) { last = s }
+            if let status = await wait(pid: pid) { last = status }
         }
         return last
     }
@@ -158,7 +161,7 @@ public actor ProcessTable {
     /// embedder's REPL can auto-reap at the prompt boundary the way
     /// real bash does between commands.
     public func reap(pid: Int32) {
-        guard let e = entries[pid], e.state != .running else { return }
+        guard let entry = entries[pid], entry.state != .running else { return }
         entries.removeValue(forKey: pid)
         tasks.removeValue(forKey: pid)
     }
@@ -195,12 +198,12 @@ public actor ProcessTable {
     }
 
     private func markFinished(pid: Int32, state: Entry.State) {
-        if var e = entries[pid] {
+        if var entry = entries[pid] {
             // Don't overwrite a state we set deliberately (e.g. a
             // signal landing right at the same moment as natural exit).
-            if case .running = e.state {
-                e.state = state
-                entries[pid] = e
+            if case .running = entry.state {
+                entry.state = state
+                entries[pid] = entry
             }
         }
         // Drop the strong Task reference now that it's done.

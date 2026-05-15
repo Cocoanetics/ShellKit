@@ -23,8 +23,7 @@ public struct ClosureCommand: Command {
     private let body: @Sendable ([String]) async throws -> ExitStatus
 
     public init(name: String,
-                body: @Sendable @escaping ([String]) async throws -> ExitStatus)
-    {
+                body: @Sendable @escaping ([String]) async throws -> ExitStatus) {
         self.name = name
         self.body = body
     }

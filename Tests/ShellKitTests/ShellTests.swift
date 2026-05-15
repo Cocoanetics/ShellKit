@@ -142,15 +142,15 @@ import Testing
         let viaDescribing = String(describing: denial)
         let viaLocalized = denial.errorDescription ?? ""
 
-        for s in [viaInterpolation, viaDescribing, viaLocalized] {
-            #expect(s.contains("host 'github.com' is not in the sandbox allowlist"),
-                    "expected reason in: \(s)")
-            #expect(!s.contains("/secret/host/root"),
-                    "host path leaked into: \(s)")
-            #expect(!s.contains("suggestion"),
-                    "field name leaked into: \(s)")
-            #expect(!s.contains("Denial("),
-                    "struct shape leaked into: \(s)")
+        for output in [viaInterpolation, viaDescribing, viaLocalized] {
+            #expect(output.contains("host 'github.com' is not in the sandbox allowlist"),
+                    "expected reason in: \(output)")
+            #expect(!output.contains("/secret/host/root"),
+                    "host path leaked into: \(output)")
+            #expect(!output.contains("suggestion"),
+                    "field name leaked into: \(output)")
+            #expect(!output.contains("Denial("),
+                    "struct shape leaked into: \(output)")
         }
     }
 }

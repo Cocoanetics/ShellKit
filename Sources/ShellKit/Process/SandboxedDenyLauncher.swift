@@ -16,6 +16,9 @@ public struct SandboxedDenyLauncher: ProcessLauncher {
         self.reason = reason
     }
 
+    // Mirrors the ProcessLauncher protocol signature — see protocol
+    // for why 7 parameters is the canonical exec contract.
+    // swiftlint:disable:next function_parameter_count
     public func launch(
         _ executable: Executable,
         arguments: Arguments,

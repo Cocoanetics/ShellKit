@@ -107,16 +107,15 @@ public struct SecureFetcher: Sendable {
     // MARK: Validation
 
     private func checkAllowed(url: URL,
-                              redirectError: Bool = false) async throws
-    {
-        let s = url.absoluteString
+                              redirectError: Bool = false) async throws {
+        let urlString = url.absoluteString
         if !config.dangerouslyAllowFullInternetAccess {
-            if !URLAllowList.isAllowed(s, entries: config.allowedURLPrefixes) {
+            if !URLAllowList.isAllowed(urlString, entries: config.allowedURLPrefixes) {
                 if redirectError {
-                    throw NetworkError.redirectNotAllowed(url: s)
+                    throw NetworkError.redirectNotAllowed(url: urlString)
                 }
                 throw NetworkError.accessDenied(
-                    url: s, reason: "URL not in allow-list")
+                    url: urlString, reason: "URL not in allow-list")
             }
         }
         // Private-range guard runs even with full internet access.
@@ -138,12 +137,10 @@ public struct SecureFetcher: Sendable {
             || (PrivateIP.parseIPv6(host) != nil)
         if isIPLiteral { return }
         let addresses = try await PrivateIP.resolve(host)
-        for addr in addresses {
-            if PrivateIP.isPrivate(host: addr) {
-                throw NetworkError.privateAddress(
-                    url: url.absoluteString,
-                    reason: "hostname resolves to private/loopback IP address")
-            }
+        for addr in addresses where PrivateIP.isPrivate(host: addr) {
+            throw NetworkError.privateAddress(
+                url: url.absoluteString,
+                reason: "hostname resolves to private/loopback IP address")
         }
     }
 
@@ -152,9 +149,9 @@ public struct SecureFetcher: Sendable {
             for: req.url.absoluteString,
             entries: config.allowedURLPrefixes)
         else { return }
-        for (k, v) in injected {
+        for (key, value) in injected {
             // Override script-supplied values for these names.
-            req.headers[k] = v
+            req.headers[key] = value
         }
     }
 
@@ -163,13 +160,13 @@ public struct SecureFetcher: Sendable {
     }
 
     /// Strip headers that don't make sense to forward across a hop.
-    private func stripHopHeaders(_ h: [String: String]) -> [String: String] {
+    private func stripHopHeaders(_ headers: [String: String]) -> [String: String] {
         let drop: Set<String> = [
             "Authorization", "Cookie", "Host", "Content-Length",
-            "Content-Type", "Transfer-Encoding", "Connection",
+            "Content-Type", "Transfer-Encoding", "Connection"
         ]
-        var out = h
-        for k in drop where out[k] != nil { out.removeValue(forKey: k) }
+        var out = headers
+        for key in drop where out[key] != nil { out.removeValue(forKey: key) }
         return out
     }
 }
