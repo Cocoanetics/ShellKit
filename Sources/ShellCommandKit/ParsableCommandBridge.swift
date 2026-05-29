@@ -1,5 +1,6 @@
 import ArgumentParser
 import Foundation
+import ShellKit
 
 /// Adapter that wraps any `ArgumentParser.ParsableCommand` (sync or
 /// async — `AsyncParsableCommand` refines `ParsableCommand`) so it
