@@ -115,7 +115,9 @@ let package = Package(
         ),
         .testTarget(
             name: "ShellKitTests",
-            dependencies: ["ShellKit"],
+            // ShellCommandKit for `Shell.register(_:)` (the ArgumentParser
+            // bridge moved out of core ShellKit).
+            dependencies: ["ShellKit", "ShellCommandKit"],
             path: "Tests/ShellKitTests"
         ),
     ]

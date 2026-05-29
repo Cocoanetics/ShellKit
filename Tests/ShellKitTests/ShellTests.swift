@@ -2,6 +2,7 @@ import ArgumentParser
 import Foundation
 import Testing
 @testable import ShellKit
+import ShellCommandKit  // Shell.register(_:) bridge
 
 @Suite struct ShellTests {
 
