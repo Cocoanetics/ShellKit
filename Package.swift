@@ -27,8 +27,13 @@ import PackageDescription
 //   • ProcessTable + HostInfo (virtual PIDs, identity reporting).
 //   • Command protocol + BinCatalog (registry + virtual /bin paths).
 //   • ExitStatus.
-//   • ParsableShellCommand (ArgumentParser bridge that routes through
-//     `Shell.current` instead of `FileHandle.standard*`).
+//
+// Split into the sibling `ShellCommandKit` product (NOT core ShellKit):
+//   • ParsableCommandBridge + `Shell.register(_:)` — the ArgumentParser
+//     bridge that routes through `Shell.current`. Lives apart so core
+//     ShellKit carries no ArgumentParser dependency, keeping it (and
+//     every SDK library that imports it) off ArgumentParser's module
+//     graph entirely.
 //
 // What does NOT live here:
 //   • Bash language: parser, interpreter, control flow, expansion,
@@ -58,6 +63,11 @@ let package = Package(
     ],
     products: [
         .library(name: "ShellKit", targets: ["ShellKit"]),
+        // ArgumentParser bridge, split out so core ShellKit (and every
+        // SDK library that imports it) carries ZERO ArgumentParser
+        // dependency. Only command-layer embedders that register
+        // `ParsableCommand` types need this.
+        .library(name: "ShellCommandKit", targets: ["ShellCommandKit"]),
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-argument-parser",
@@ -79,7 +89,6 @@ let package = Package(
         .target(
             name: "ShellKit",
             dependencies: [
-                .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 // swift-subprocess pins iOS / tvOS / watchOS to "99.0" — kernel
                 // bans posix_spawn / fork there, so the dep is conditionally
                 // linked only on platforms where real exec is possible.
@@ -92,9 +101,23 @@ let package = Package(
             ],
             path: "Sources/ShellKit"
         ),
+        // ParsableCommandBridge + `Shell.register(_:)` — the only
+        // ArgumentParser-touching surface. Kept out of core ShellKit so
+        // importing ShellKit never drags ArgumentParser (and its libc
+        // overlay edges) into a consumer's module graph.
+        .target(
+            name: "ShellCommandKit",
+            dependencies: [
+                "ShellKit",
+                .product(name: "ArgumentParser", package: "swift-argument-parser"),
+            ],
+            path: "Sources/ShellCommandKit"
+        ),
         .testTarget(
             name: "ShellKitTests",
-            dependencies: ["ShellKit"],
+            // ShellCommandKit for `Shell.register(_:)` (the ArgumentParser
+            // bridge moved out of core ShellKit).
+            dependencies: ["ShellKit", "ShellCommandKit"],
             path: "Tests/ShellKitTests"
         ),
     ]
