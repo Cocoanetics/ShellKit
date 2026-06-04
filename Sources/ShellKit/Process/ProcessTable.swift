@@ -94,6 +94,45 @@ public actor ProcessTable {
         return pid
     }
 
+    /// Register an entry the table did **not** spawn — typically the
+    /// shell process itself, so `ps` / `pgrep` can see it even when no
+    /// `&` job is live. Unlike ``spawn(command:body:)`` there is no
+    /// backing `Task`: the entry exposes no awaitable future, and
+    /// ``signal(pid:signo:)`` against it returns `false` (nothing to
+    /// cancel) — you can't virtual-kill the shell out from under itself.
+    ///
+    /// - Parameters:
+    ///   - command: the text shown by `ps` (e.g. `"bash"`).
+    ///   - pid: an explicit virtual PID to use (e.g. the shell's own
+    ///     `$$`). When `nil`, a fresh monotonic PID is allocated. An
+    ///     explicit PID that already exists overwrites that entry; the
+    ///     internal counter is bumped past it so a later ``spawn`` never
+    ///     collides.
+    ///   - state: initial state — defaults to `.running`.
+    ///   - startedAt: start timestamp shown by `ps`; defaults to now.
+    /// - Returns: the PID the entry was registered under.
+    @discardableResult
+    public func register(
+        command: String,
+        pid: Int32? = nil,
+        state: Entry.State = .running,
+        startedAt: Date = Date()
+    ) -> Int32 {
+        let assigned: Int32
+        if let pid {
+            assigned = pid
+            // Keep the allocator ahead of any explicitly-registered id
+            // so a later spawn() never hands out a colliding PID.
+            if pid >= nextPID { nextPID = pid &+ 1 }
+        } else {
+            assigned = nextPID
+            nextPID += 1
+        }
+        entries[assigned] = Entry(pid: assigned, command: command,
+                                  startedAt: startedAt, state: state)
+        return assigned
+    }
+
     private struct TaskOutcome: Sendable {
         let status: ExitStatus
         let state: Entry.State
