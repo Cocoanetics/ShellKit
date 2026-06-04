@@ -76,9 +76,17 @@ public struct HostInfo: Sendable, Equatable {
     }
 
     /// Anonymous, stable values that leak nothing about the host.
-    /// This is the **default** for every freshly-constructed `Shell`.
+    /// This is the **default** for any `Shell` you construct via
+    /// ``Shell/init`` — the passthrough ``Shell/processDefault`` is the
+    /// one exception, defaulting to ``HostInfo/real()`` (see its docs).
     /// Anything sandboxed (the CLI's `--sandbox` flag, an embedder
-    /// running untrusted scripts) keeps this default.
+    /// running untrusted scripts) keeps this synthetic default.
+    ///
+    /// The values describe a **Darwin kernel identity over a generic
+    /// Unix layout** — `uname` reports `Darwin … swift-bash arm64`, yet
+    /// the surrounding filesystem an embedder presents is a neutral
+    /// POSIX tree (`/bin`, `/usr/bin`, `/home/user`). It is neither a
+    /// faithful macOS nor a Linux; treat it as a custom virtual Unix.
     public static let synthetic = HostInfo(
         userName: "user",
         fullUserName: "user",
