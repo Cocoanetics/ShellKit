@@ -47,6 +47,47 @@ Same command body, both modes. That's the contract.
   in [SwiftPorts](https://github.com/Cocoanetics/SwiftPorts) and
   build their command structs against ShellKit.
 
+## Identity (`HostInfo`)
+
+`HostInfo` is what `whoami` / `id` / `hostname` / `uname` report. There
+are two factories, and which one is the default depends on the
+construction path **by design**:
+
+- **`.synthetic`** — anonymous, stable values that leak nothing about
+  the host. The default for any `Shell` you construct yourself
+  (`Shell(…)`), and what anything sandboxed keeps.
+- **`.real()`** — the host's actual login name / uid / gid / `uname`.
+  The default for the passthrough `Shell.processDefault` *only* — i.e. a
+  standalone `swift run sometool`, where the user is running their own
+  tool on their own machine and expects `whoami` to print their login
+  name.
+
+So an explicitly-constructed `Shell` is synthetic while the implicit
+passthrough shell is real. These are intentional opposites, not a
+contradiction.
+
+### The synthetic OS identity is a deliberate hybrid
+
+`.synthetic` reports a **Darwin kernel identity over a generic Unix
+layout**:
+
+| Field | Value |
+|---|---|
+| `uname` sysname / release / version / machine | `Darwin` / `0.0.0` / `swift-bash` / `arm64` |
+| node (hostname) | `sandbox` |
+| user / uid / group / gid | `user` / `1000` / `users` / `1000` |
+
+So `uname -a` prints `Darwin sandbox 0.0.0 swift-bash arm64`, and a
+consumer such as SwiftBash derives `$OSTYPE=darwin` /
+`$MACHTYPE=arm64-apple-darwin` from these fields. But the filesystem an
+embedder presents around it is a neutral POSIX tree (`/bin`, `/usr/bin`,
+`/home/user`) — it is **not** a faithful macOS (no `/System`, no real
+Darwin version) and **not** a Linux (`uname` would say `Linux`).
+
+Treat it as a **custom virtual Unix**: a Darwin-flavoured kernel
+identity on a generic POSIX layout. Embedders that want a different
+shape build their own `HostInfo` and assign it to `Shell.hostInfo`.
+
 ## Quick example
 
 The same `AsyncParsableCommand` runs in both modes — no parallel
