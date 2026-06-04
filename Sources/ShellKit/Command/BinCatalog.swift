@@ -56,6 +56,12 @@ public enum BinCatalog {
             "mktemp", "more", "nl", "od", "paste", "patch", "pgrep", "pkill",
             "printenv", "printf", "readlink", "rev", "sed", "seq",
             "sha1sum", "sha256sum", "shasum", "sort", "split",
+            // sqlite3 ships in base macOS at /usr/bin/sqlite3. SwiftBash
+            // registers SwiftPorts' SQLite shell port there as a builtin;
+            // the catalog entry lets overlay-backed shells synthesize the
+            // file so `ls /usr/bin/sqlite3` / `[ -x /usr/bin/sqlite3 ]` /
+            // tool-presence checks succeed, not just `which sqlite3`.
+            "sqlite3",
             "stat", "strings", "tac", "tail", "tar", "tee", "time",
             "timeout", "touch", "tr", "tree", "true", "truncate",
             "uname", "unexpand", "uniq", "wait", "wc", "which",
