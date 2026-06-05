@@ -57,6 +57,27 @@ import Testing
         #expect(signaled == false)
     }
 
+    @Test("register over a spawned PID clears the task and stays non-spawned")
+    func registerOverSpawnedPid() async {
+        let table = ProcessTable(startingAt: 1000)
+        // A backgrounded job that finishes on its own shortly.
+        let pid = await table.spawn(command: "worker") {
+            try? await Task.sleep(nanoseconds: 20_000_000)
+            return ExitStatus.success
+        }
+        // Re-register the same pid as a non-spawned entry.
+        _ = await table.register(command: "bash", pid: pid)
+        // No backing task: signal is a no-op; the entry is the registered one.
+        #expect(await table.signal(pid: pid) == false)
+        #expect(await table.entry(for: pid)?.command == "bash")
+        // Once the superseded task finishes, its stale completion observer
+        // must NOT flip the registered entry to exited.
+        try? await Task.sleep(nanoseconds: 80_000_000)   // > the 20ms job
+        let entry = await table.entry(for: pid)
+        #expect(entry?.command == "bash")
+        #expect(entry?.state == .running)
+    }
+
     @Test("a finished registered entry is reapable")
     func registeredFinishedReaps() async {
         let table = ProcessTable()
