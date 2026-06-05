@@ -55,11 +55,16 @@ jobs:
           swift test -v --skip-build --no-parallel
 
   build-ios:
-    # Compile-only check on `generic/platform=iOS`. swift-subprocess is
-    # platform-gated out on iOS / tvOS / watchOS / visionOS (kernel
-    # forbids posix_spawn / fork) — this job verifies the
+    # iOS: compile against the device SDK (portability check — swift-
+    # subprocess is platform-gated out on iOS / tvOS / watchOS / visionOS,
+    # which forbid posix_spawn / fork, so this verifies the
     # `#if canImport(Subprocess)` gates in `DefaultProcessLauncher`
-    # compile cleanly against the iOS SDK.
+    # compile against the iOS SDK) AND run the test suite on a simulator.
+    # The exec-dependent tests no-op on iOS via `guard supportsRealExec`,
+    # so what executes is the platform-agnostic surface (launcher wiring,
+    # ProcessTable, Shell, argument-parser bridge). Unlike SwiftBash —
+    # whose heavier suite intermittently hangs the simulator, so it stays
+    # compile-only — ShellKit's tests run cleanly on a sim.
     runs-on: macos-15
     timeout-minutes: 15
     steps:
@@ -68,12 +73,25 @@ jobs:
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: "26.0"
-      - name: Build (iOS — all package targets)
+      - name: Build (iOS device — all package targets)
         run: |
           xcodebuild \
             -scheme ShellKit \
             -destination 'generic/platform=iOS' \
             build
+      - name: Test (iOS Simulator)
+        run: |
+          set -eo pipefail
+          # Pick the first available iPhone simulator — don't pin a device
+          # name a future Xcode might drop (Xcode 26 ships no "iPhone 16",
+          # for example).
+          UDID=$(xcrun simctl list devices available --json \
+            | jq -r '[.devices[][] | select(.name|test("iPhone"))][0].udid // empty')
+          [ -n "$UDID" ] || { echo "::error::no iPhone simulator available"; exit 1; }
+          echo "Using simulator $UDID"
+          xcodebuild test \
+            -scheme ShellKit-Package \
+            -destination "platform=iOS Simulator,id=$UDID"
 
   build-linux:
     # Linux: full build + test. ShellKit has no C-library deps
