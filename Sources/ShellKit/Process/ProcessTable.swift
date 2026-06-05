@@ -128,6 +128,12 @@ public actor ProcessTable {
             assigned = nextPID
             nextPID += 1
         }
+        // A registered entry is non-spawned: drop any task tracked for
+        // this pid (a `spawn` whose id is being reused) so `signal` /
+        // `wait` don't treat it as a live job, and so the superseded
+        // task's completion observer can't later flip this entry (see
+        // the guard in `markFinished`).
+        tasks.removeValue(forKey: assigned)
         entries[assigned] = Entry(pid: assigned, command: command,
                                   startedAt: startedAt, state: state)
         return assigned
@@ -237,6 +243,12 @@ public actor ProcessTable {
     }
 
     private func markFinished(pid: Int32, state: Entry.State) {
+        // Only the task currently tracked for `pid` may flip its entry.
+        // If it was already dropped — reaped, or replaced by a
+        // `register(pid:)` over the same id — this is a stale observer
+        // from a superseded task; ignore it so it can't clobber the
+        // current (possibly non-spawned) entry.
+        guard tasks[pid] != nil else { return }
         if var entry = entries[pid] {
             // Don't overwrite a state we set deliberately (e.g. a
             // signal landing right at the same moment as natural exit).
