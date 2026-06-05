@@ -14,14 +14,18 @@ env:
 jobs:
 
   build-macos:
-    runs-on: macos-latest
+    runs-on: macos-15
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
-      # macos-latest currently ships Xcode 16 / Swift 6.1; ShellKit's
-      # swift-subprocess dep needs the 6.1 toolchain, but bumping to
-      # Xcode 26 keeps us aligned with the SwiftBash workflow and gets
-      # us Swift 6.2 (matching the toolchain SwiftPorts targets).
+      # Pin `macos-15` rather than `macos-latest`: `setup-xcode` only
+      # selects among Xcodes already on the image, and `-latest` isn't
+      # guaranteed to carry Xcode 26 — the macOS/iOS jobs would fail
+      # before build when it rotates to an older image. `macos-15` ships
+      # Xcode 26.0.1 (selected below for Swift 6.2, matching SwiftPorts)
+      # and pre-installs the iOS platform `build-ios` needs. (`macos-26`
+      # carries Xcode 26 but not the iOS SDK — it'd need a per-run
+      # `xcodebuild -downloadPlatform iOS`.) Aligned with SwiftBash.
       - name: Select Xcode 26.0
         uses: maxim-lobanov/setup-xcode@v1
         with:
@@ -56,7 +60,7 @@ jobs:
     # forbids posix_spawn / fork) — this job verifies the
     # `#if canImport(Subprocess)` gates in `DefaultProcessLauncher`
     # compile cleanly against the iOS SDK.
-    runs-on: macos-latest
+    runs-on: macos-15
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
