@@ -66,6 +66,17 @@ struct ParsableCommandBridge<P: ParsableCommand>: Command {
             throw CancellationError()
         } catch let exit as ExitCode {
             return ExitStatus(exit.rawValue)
+        } catch let denial as Sandbox.Denial {
+            // Render only the human-readable reason — never the sandbox root
+            // or the requested path that `Sandbox.Denial` also carries — so an
+            // app-as-sandbox embedder can't leak its container path into a
+            // command's error output. (ArgumentParser's `fullMessage(for:)`
+            // would `String(describing:)` the whole value and dump every
+            // field.) Routing every bridged command through this catch keeps
+            // the redaction in one place — the command-building base — rather
+            // than re-implemented in each embedder.
+            Shell.current.stderr("\(name): \(denial.reason)\n")
+            return ExitStatus(1)
         } catch {
             return formatAndReport(error: error)
         }
