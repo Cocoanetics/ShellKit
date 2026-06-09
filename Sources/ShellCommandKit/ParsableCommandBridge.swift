@@ -66,6 +66,17 @@ struct ParsableCommandBridge<P: ParsableCommand>: Command {
             throw CancellationError()
         } catch let exit as ExitCode {
             return ExitStatus(exit.rawValue)
+        } catch let denial as Sandbox.Denial {
+            // Render only the human-readable reason — never the sandbox root
+            // or the requested path that `Sandbox.Denial` also carries — so an
+            // app-as-sandbox embedder can't leak its container path into a
+            // command's error output. (ArgumentParser's `fullMessage(for:)`
+            // would `String(describing:)` the whole value and dump every
+            // field.) Routing every bridged command through this catch keeps
+            // the redaction in one place — the command-building base — rather
+            // than re-implemented in each embedder.
+            Shell.current.stderr("\(name): \(denial.reason)\n")
+            return ExitStatus(1)
         } catch {
             return formatAndReport(error: error)
         }
@@ -90,6 +101,35 @@ struct ParsableCommandBridge<P: ParsableCommand>: Command {
 }
 
 extension Shell {
+
+    /// Build — but do **not** register — a ``Command`` that bridges an
+    /// `ArgumentParser` command type to ShellKit's command protocol.
+    ///
+    /// Use this when you maintain your own command registry rather than this
+    /// shell's in-memory `commands` map — for example an installer that places
+    /// commands into a filesystem-backed bin catalog (`/usr/bin/…`) so they're
+    /// `PATH`-resolvable. ``register(_:)`` is the convenience built on top of
+    /// this: it makes a bridge and stores it under the command's name.
+    ///
+    /// The command name is taken from `configuration.commandName` if set,
+    /// otherwise the lowercased Swift type name — the same rule
+    /// ``register(_:)`` uses, so a bridged instance carries the name the shell
+    /// would have registered it under.
+    ///
+    /// ```swift
+    /// // In a producer package that vends ready-to-install commands:
+    /// let jq = Shell.parsableCommand(Jq.self)   // jq.name == "jq"
+    ///
+    /// // In a standalone executable target the bridge isn't involved:
+    /// @main struct Entry {
+    ///     static func main() async { await Jq.main() }   // ArgumentParser
+    /// }
+    /// ```
+    public static func parsableCommand<P: ParsableCommand>(_ type: P.Type) -> Command {
+        let name = type.configuration.commandName
+            ?? String(describing: type).lowercased()
+        return ParsableCommandBridge<P>(name: name)
+    }
 
     /// Register an `AsyncParsableCommand` (or plain `ParsableCommand`)
     /// type with this Shell. Once registered, `commands[name].run(argv)`
@@ -117,8 +157,7 @@ extension Shell {
     /// }
     /// ```
     public func register<P: ParsableCommand>(_ type: P.Type) {
-        let name = type.configuration.commandName
-            ?? String(describing: type).lowercased()
-        commands[name] = ParsableCommandBridge<P>(name: name)
+        let command = Shell.parsableCommand(type)
+        commands[command.name] = command
     }
 }
