@@ -291,4 +291,27 @@ import ShellCommandKit  // Shell.register(_:) bridge
             #expect(status.code == 42)
         }
     }
+
+    @Test func parsableCommandVendsNamedInstanceWithoutRegistering() async throws {
+        // The producer-side API: obtain an installable Command instance
+        // (named from configuration.commandName) WITHOUT touching any shell's
+        // `commands` map — the path an external installer (e.g. SwiftBash)
+        // uses to place the command into its own bin catalog.
+        let command = Shell.parsableCommand(Echo.self)
+        #expect(command.name == "shellkit-test-echo")
+
+        let captured = OutputSink()
+        let shell = Shell(stdout: captured)
+        #expect(shell.commands["shellkit-test-echo"] == nil)  // never registered
+
+        try await shell.withCurrent {
+            let status = try await command.run(
+                ["shellkit-test-echo", "hi", "there"])
+            #expect(status == .success)
+        }
+
+        captured.finish()
+        let out = await captured.readAllString()
+        #expect(out == "hi there\n")
+    }
 }
