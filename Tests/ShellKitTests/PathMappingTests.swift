@@ -170,15 +170,61 @@ import Testing
         #expect(shell.resolve("data.json").path
                 == workspace.path + "/data.json")
         #expect(shell.resolve("../tmp/x").path == temp.path + "/x")
-        // Virtual paths outside every mount come back untranslated —
-        // the gate denies them and the host reports them missing.
-        #expect(shell.resolve("/etc/passwd").path == "/etc/passwd")
+        // Virtual paths outside every mount are VOIDED — never handed
+        // back as host-interpretable text. The sentinel keeps the
+        // virtual spelling for diagnostics, can't exist on disk, and
+        // the gate denies it.
+        #expect(shell.resolve("/etc/passwd").path
+                == Shell.unmappedPathSentinel + "/etc/passwd")
+        #expect(shell.displayPath(for: shell.resolve("/etc/passwd"))
+                == "/etc/passwd")
 
         // The static accessors agree under the binding.
         try await shell.withCurrent {
             #expect(Shell.resolve("/tmp/y").path == temp.path + "/y")
             #expect(Shell.currentDirectory.path == workspace.path)
         }
+    }
+
+    @Test func hostSpellingsDoNotResolveUnderMapping() async throws {
+        // The namespace boundary, not just the containment boundary:
+        // a script that GUESSES (or was leaked) the host path of a
+        // mounted directory must not be able to address files through
+        // it. Pre-fix, resolve passed the unmapped host spelling
+        // through unchanged and the gate then authorized it — it IS
+        // under a canonical host root. Now it voids, the gate denies,
+        // and Facade B agrees with the bash-side mounted filesystem
+        // (which reports ENOENT for host spellings).
+        let (workspace, temp) = try Self.makeRoots()
+        defer {
+            try? FileManager.default.removeItem(at: workspace)
+            try? FileManager.default.removeItem(at: temp)
+        }
+        try Data("secret".utf8).write(
+            to: workspace.appendingPathComponent("secret.txt"))
+        let mapping = Self.mapping(workspace: workspace, temp: temp)
+        var env = Environment()
+        env.workingDirectory = "/batch"
+        let shell = Shell(environment: env)
+        shell.sandbox = .confined(to: mapping, home: "/batch")
+
+        for hostSpelling in [
+            workspace.path + "/secret.txt",
+            workspace.resolvingSymlinksInPath().path + "/secret.txt",
+            temp.path
+        ] {
+            let resolved = shell.resolve(hostSpelling)
+            #expect(resolved.path.hasPrefix(Shell.unmappedPathSentinel),
+                    "host spelling resolved to \(resolved.path)")
+            #expect(!FileManager.default.fileExists(atPath: resolved.path))
+            await #expect(throws: Sandbox.Denial.self) {
+                try await shell.sandbox!.authorize(resolved)
+            }
+        }
+        // The voided path can't be `..`-escaped back out of the
+        // sentinel either.
+        let sneaky = shell.resolve("/nope/../../" + workspace.path)
+        #expect(sneaky.path.hasPrefix(Shell.unmappedPathSentinel))
     }
 
     @Test func resolveWithoutMappingIsUnchanged() {

@@ -289,6 +289,19 @@ open class Shell: @unchecked Sendable {
     /// ``displayPath(for:)-swift.method`` so the embedder's host
     /// layout never leaks into the sandbox.
     ///
+    /// Under a mapping, a path that matches **no** mount — `/etc/x`,
+    /// or the *host* spelling of a mounted directory (guessed, or
+    /// leaked through some diagnostic) — never comes back as given:
+    /// it resolves to a voided location under
+    /// ``unmappedPathSentinel`` that cannot exist on disk and that
+    /// ``Sandbox/authorize(_:)`` rejects. Script-visible text is the
+    /// only addressing scheme inside the virtual namespace; if host
+    /// spellings passed through here, anyone holding the host path
+    /// of a mount could sidestep the no-host-paths boundary (the
+    /// containment boundary would hold, the namespace one wouldn't —
+    /// and bash's mounted filesystem, which ENOENTs those spellings,
+    /// would disagree with this facade).
+    ///
     /// CLI commands resolving relative argv paths should use this
     /// instead of `URL(fileURLWithPath:)` / `FileManager.default.currentDirectoryPath`
     /// directly so embedders can confine path resolution to whatever
@@ -306,29 +319,47 @@ open class Shell: @unchecked Sendable {
             #if os(Windows)
             if path.count >= 2,
                let second = path.dropFirst().first, second == ":" {
-                return URL(fileURLWithPath: path)
+                // Drive-letter absolutes live outside the unix-style
+                // virtual namespace; under a mapping they fall through
+                // to the unmapped sentinel below.
+                let driveURL = URL(fileURLWithPath: path)
+                guard sandbox?.pathMapping != nil else { return driveURL }
+                return Self.voidedUnmappedPath(path)
             }
             #endif
             let cwd = environment.workingDirectory
             if cwd.isEmpty {
-                // Host-process CWD fallback: there is no virtual
-                // path space without an embedder-bound CWD, so the
-                // mapping never applies here.
-                return URL(
+                // Host-process CWD fallback. Without a mapping this
+                // is the standalone-CLI behaviour. With one, an empty
+                // embedder CWD is a misconfiguration — the host-CWD
+                // join would produce exactly the kind of host-space
+                // path the namespace must not honour, so it voids.
+                let hostJoined = URL(
                     fileURLWithPath: FileManager.default.currentDirectoryPath,
                     isDirectory: true)
                     .appendingPathComponent(path)
+                guard let mapping = sandbox?.pathMapping else {
+                    return hostJoined
+                }
+                if let translated = mapping.hostPath(forVirtual: hostJoined.path) {
+                    return URL(fileURLWithPath: translated.host)
+                }
+                return Self.voidedUnmappedPath(hostJoined.path)
             }
             url = URL(fileURLWithPath: cwd, isDirectory: true)
                 .appendingPathComponent(path)
         }
-        guard let mapping = sandbox?.pathMapping,
-              let translated = mapping.hostPath(forVirtual: url.path)
-        else {
-            // No mapping (or a virtual path outside every mount —
-            // which the gate then denies / the host reports missing):
-            // hand back the un-translated resolution.
+        guard let mapping = sandbox?.pathMapping else {
+            // No mapping: the resolution is the path itself, exactly
+            // as it always worked.
             return url
+        }
+        guard let translated = mapping.hostPath(forVirtual: url.path) else {
+            // Mapping present but no mount matches: the path does not
+            // exist in the virtual namespace. Void it — never hand
+            // back text that the host (or the gate) could interpret
+            // as a real location.
+            return Self.voidedUnmappedPath(url.path)
         }
         return URL(fileURLWithPath: translated.host)
     }
@@ -338,6 +369,26 @@ open class Shell: @unchecked Sendable {
     /// call-site convenience.
     public static func resolve(_ path: String) -> URL {
         current.resolve(path)
+    }
+
+    /// Prefix under which ``resolve(_:)`` voids paths that exist in
+    /// no mount of the bound mapping. Rooted under `/dev/null` — a
+    /// *file* on every POSIX host — so nothing below it can exist or
+    /// be created (`mkdir -p` included), and no sane mount table
+    /// roots a host directory there; ``Sandbox/authorize(_:)``'s
+    /// containment check rejects it like any other out-of-roots path.
+    /// The original (virtual) spelling rides along as the suffix so a
+    /// stray diagnostic stays debuggable, and
+    /// ``displayPath(for:)-swift.method`` folds it back out.
+    public static let unmappedPathSentinel = "/dev/null/unmapped"
+
+    /// Build the voided URL for an absolute path that matched no
+    /// mount. Lexically normalised first so the sentinel can't be
+    /// `..`-escaped back out of `/dev/null`.
+    private static func voidedUnmappedPath(_ path: String) -> URL {
+        var normalized = normalizePath(path)
+        if !normalized.hasPrefix("/") { normalized = "/" + normalized }
+        return URL(fileURLWithPath: unmappedPathSentinel + normalized)
     }
 
     // MARK: - Display paths
@@ -350,10 +401,22 @@ open class Shell: @unchecked Sendable {
     /// output, `os.tmpdir()`, diagnostics that embed a resolved path.
     /// Returns `path` unchanged when no mapping is bound or the path
     /// doesn't fall under any mount (nothing to hide).
+    ///
+    /// Voided paths (``unmappedPathSentinel``) fold back to the
+    /// virtual spelling they were built from, so a diagnostic that
+    /// routes through here shows the script its own path, not the
+    /// sentinel.
     public func displayPath(for path: String) -> String {
-        guard let mapping = sandbox?.pathMapping,
-              let virtual = mapping.virtualPath(forHost: path)
-        else { return path }
+        guard let mapping = sandbox?.pathMapping else { return path }
+        if path == Self.unmappedPathSentinel {
+            return "/"
+        }
+        if path.hasPrefix(Self.unmappedPathSentinel + "/") {
+            return String(path.dropFirst(Self.unmappedPathSentinel.count))
+        }
+        guard let virtual = mapping.virtualPath(forHost: path) else {
+            return path
+        }
         return virtual
     }
 
