@@ -67,7 +67,12 @@ public struct Environment: Hashable, Sendable {
         workingDirectory: String = "/"
     ) -> Environment {
         let vars: [String: String] = [
-            "PATH": "/usr/bin:/bin",
+            // All three virtual bin tiers. `/usr/local/bin` is where
+            // embedders catalogue the "user-installed" command set
+            // (SwiftBash slots the SwiftPorts CLIs — fd, rg, … —
+            // there); omitting it made those unreachable in exactly
+            // the synthetic-env sandbox runs they exist for.
+            "PATH": "/usr/local/bin:/usr/bin:/bin",
             "HOME": "/home/\(hostInfo.userName)",
             "USER": hostInfo.userName,
             "LOGNAME": hostInfo.userName,
