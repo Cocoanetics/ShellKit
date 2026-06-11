@@ -267,12 +267,27 @@ open class Shell: @unchecked Sendable {
 
     // MARK: - Path resolution
 
-    /// Resolve a (possibly relative) path string into an absolute
-    /// `URL`, honouring the shell's current working directory.
+    /// Resolve a (possibly relative) path string into the absolute
+    /// `URL` to do real I/O on, honouring the shell's current working
+    /// directory and — under a path-mapped sandbox — translating the
+    /// virtual spelling to the host directory that backs it.
     ///
-    /// Absolute paths (`/foo/bar`, or `C:\foo` on Windows) come back
-    /// unchanged. Relative paths resolve against
-    /// ``environment``'s ``Environment/workingDirectory``.
+    /// Relative paths resolve against ``environment``'s
+    /// ``Environment/workingDirectory``. When the bound sandbox
+    /// carries a ``Sandbox/pathMapping`` (the cooperative-sandbox
+    /// case: the script-visible path space is virtual), the resolved
+    /// path is then routed through the mount table, so `/tmp/x`
+    /// comes back as the per-instance host temp dir's `x` — ready
+    /// for `FileManager` / C APIs and for ``Sandbox/authorize(_:)``,
+    /// which gates the same host space. Without a mapping the result
+    /// is the path as given (absolute) or CWD-joined (relative),
+    /// unchanged from how it always worked.
+    ///
+    /// The returned URL is for *doing I/O*, not for *showing to the
+    /// script* — display output should keep the user's own spelling
+    /// or fold a host path back through
+    /// ``displayPath(for:)-swift.method`` so the embedder's host
+    /// layout never leaks into the sandbox.
     ///
     /// CLI commands resolving relative argv paths should use this
     /// instead of `URL(fileURLWithPath:)` / `FileManager.default.currentDirectoryPath`
@@ -284,24 +299,38 @@ open class Shell: @unchecked Sendable {
     /// call site for code that doesn't already have a `Shell`
     /// reference; it routes through ``current``.
     public func resolve(_ path: String) -> URL {
+        let url: URL
         if path.hasPrefix("/") {
-            return URL(fileURLWithPath: path)
-        }
-        #if os(Windows)
-        if path.count >= 2,
-           let second = path.dropFirst().first, second == ":" {
-            return URL(fileURLWithPath: path)
-        }
-        #endif
-        let cwd = environment.workingDirectory
-        if cwd.isEmpty {
-            return URL(
-                fileURLWithPath: FileManager.default.currentDirectoryPath,
-                isDirectory: true)
+            url = URL(fileURLWithPath: path)
+        } else {
+            #if os(Windows)
+            if path.count >= 2,
+               let second = path.dropFirst().first, second == ":" {
+                return URL(fileURLWithPath: path)
+            }
+            #endif
+            let cwd = environment.workingDirectory
+            if cwd.isEmpty {
+                // Host-process CWD fallback: there is no virtual
+                // path space without an embedder-bound CWD, so the
+                // mapping never applies here.
+                return URL(
+                    fileURLWithPath: FileManager.default.currentDirectoryPath,
+                    isDirectory: true)
+                    .appendingPathComponent(path)
+            }
+            url = URL(fileURLWithPath: cwd, isDirectory: true)
                 .appendingPathComponent(path)
         }
-        return URL(fileURLWithPath: cwd, isDirectory: true)
-            .appendingPathComponent(path)
+        guard let mapping = sandbox?.pathMapping,
+              let translated = mapping.hostPath(forVirtual: url.path)
+        else {
+            // No mapping (or a virtual path outside every mount —
+            // which the gate then denies / the host reports missing):
+            // hand back the un-translated resolution.
+            return url
+        }
+        return URL(fileURLWithPath: translated.host)
     }
 
     /// Resolve `path` against ``current``'s working directory.
@@ -309,6 +338,38 @@ open class Shell: @unchecked Sendable {
     /// call-site convenience.
     public static func resolve(_ path: String) -> URL {
         current.resolve(path)
+    }
+
+    // MARK: - Display paths
+
+    /// Fold a host filesystem path back to its virtual spelling for
+    /// display, when the bound sandbox carries a
+    /// ``Sandbox/pathMapping``. The inverse of ``resolve(_:)``:
+    /// `resolve` is for doing I/O, `displayPath` is for anything the
+    /// script gets to *see* — `realpath`-style answers, `--absolute-path`
+    /// output, `os.tmpdir()`, diagnostics that embed a resolved path.
+    /// Returns `path` unchanged when no mapping is bound or the path
+    /// doesn't fall under any mount (nothing to hide).
+    public func displayPath(for path: String) -> String {
+        guard let mapping = sandbox?.pathMapping,
+              let virtual = mapping.virtualPath(forHost: path)
+        else { return path }
+        return virtual
+    }
+
+    /// URL-form convenience for ``displayPath(for:)-swift.method``.
+    public func displayPath(for url: URL) -> String {
+        displayPath(for: url.path)
+    }
+
+    /// Fold `path` through ``current``'s mapping for display.
+    public static func displayPath(for path: String) -> String {
+        current.displayPath(for: path)
+    }
+
+    /// Fold `url` through ``current``'s mapping for display.
+    public static func displayPath(for url: URL) -> String {
+        current.displayPath(for: url)
     }
 }
 

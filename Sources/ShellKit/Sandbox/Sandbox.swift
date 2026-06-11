@@ -58,6 +58,22 @@ public struct Sandbox: Sendable {
     /// User caches directory.
     public let cachesDirectory: URL
 
+    // MARK: - Path mapping
+
+    /// The virtual↔host ``PathMapping`` this sandbox confines to, when
+    /// it was built over one (``confined(to:home:temporaryDirectory:allowedHosts:authorizeNetwork:)``).
+    ///
+    /// When set, ``Shell/resolve(_:)`` translates virtual paths to
+    /// their host spelling through this table before returning, and
+    /// ``Shell/displayPath(for:)-swift.method`` folds host paths back
+    /// to virtual for display — the same table ``authorize(_:)``
+    /// gates against, so resolution and confinement can't disagree.
+    /// `nil` for sandboxes without a virtual path space
+    /// (``rooted(at:allowedHosts:)``, ``appContainer(id:allowedHosts:)``):
+    /// there, paths mean the same thing on both sides and `resolve`
+    /// passes them through untranslated.
+    public let pathMapping: PathMapping?
+
     // MARK: - URL gate
 
     private let _authorize: @Sendable (URL) async throws -> Void
@@ -88,6 +104,7 @@ public struct Sandbox: Sendable {
         userDirectory: URL,
         cachesDirectory: URL,
         homeDirectory: URL? = nil,
+        pathMapping: PathMapping? = nil,
         authorize: @escaping @Sendable (URL) async throws -> Void
     ) {
         self.documentsDirectory = documentsDirectory
@@ -102,6 +119,7 @@ public struct Sandbox: Sendable {
         self.userDirectory = userDirectory
         self.cachesDirectory = cachesDirectory
         self.homeDirectory = homeDirectory ?? documentsDirectory
+        self.pathMapping = pathMapping
         self._authorize = authorize
     }
 

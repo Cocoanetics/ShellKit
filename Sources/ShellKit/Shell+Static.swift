@@ -36,14 +36,21 @@ public extension Shell {
         current.positionalParameters
     }
 
-    /// Current working directory. Honours
-    /// ``Shell/current``'s `environment.workingDirectory` when set,
+    /// Current working directory, as a URL ready for real I/O.
+    /// Honours ``Shell/current``'s `environment.workingDirectory`
+    /// when set — translated to its host spelling under a
+    /// path-mapped sandbox, exactly like ``Shell/resolve(_:)`` —
     /// otherwise falls back to the OS CWD via
     /// `FileManager.default.currentDirectoryPath`.
+    ///
+    /// For the *script-visible* CWD string (`pwd`, `process.cwd()`),
+    /// read `environment.workingDirectory` directly — that one stays
+    /// in the virtual spelling.
     static var currentDirectory: URL {
         let cwd = current.environment.workingDirectory
         if !cwd.isEmpty {
-            return URL(fileURLWithPath: cwd, isDirectory: true)
+            return URL(fileURLWithPath: current.resolve(cwd).path,
+                       isDirectory: true)
         }
         return URL(
             fileURLWithPath: FileManager.default.currentDirectoryPath,
