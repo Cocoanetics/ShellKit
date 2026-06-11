@@ -195,6 +195,14 @@ import Testing
         // under a canonical host root. Now it voids, the gate denies,
         // and Facade B agrees with the bash-side mounted filesystem
         // (which reports ENOENT for host spellings).
+        //
+        // Virtual prefixes here deliberately avoid `/tmp`: on Linux
+        // the platform temp root IS `/tmp`, so a host spelling under
+        // it would prefix-match a virtual `/tmp` mount and (by
+        // design) translate as an ordinary virtual path — into the
+        // mount's own backing, never the host location, so that
+        // collision is harmless; the voiding contract under test
+        // here is about spellings that match NO mount.
         let (workspace, temp) = try Self.makeRoots()
         defer {
             try? FileManager.default.removeItem(at: workspace)
@@ -202,7 +210,10 @@ import Testing
         }
         try Data("secret".utf8).write(
             to: workspace.appendingPathComponent("secret.txt"))
-        let mapping = Self.mapping(workspace: workspace, temp: temp)
+        let mapping = PathMapping(mounts: [
+            .init(virtual: "/batch", host: workspace.path),
+            .init(virtual: "/scratch", host: temp.path)
+        ])
         var env = Environment()
         env.workingDirectory = "/batch"
         let shell = Shell(environment: env)
