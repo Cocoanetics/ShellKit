@@ -129,8 +129,15 @@ public struct PathMapping: Sendable {
     /// longest matching host root wins, mirroring the
     /// longest-virtual-prefix rule of ``hostPath(forVirtual:)``.
     public func virtualPath(forHost path: String) -> String? {
+        // Best fold so far: the rebuilt virtual spelling plus the
+        // length of the host root that matched (longer root = more
+        // specific mount).
+        struct Fold {
+            let virtual: String
+            let matched: Int
+        }
         let candidates = Self.spellings(of: path)
-        var best: (virtual: String, rel: String, matched: Int)?
+        var best: Fold?
         for mount in mounts {
             for root in Self.spellings(of: mount.host) {
                 for candidate in candidates {
@@ -142,17 +149,22 @@ public struct PathMapping: Sendable {
                     } else {
                         continue
                     }
-                    if best == nil || root.count > best!.matched {
-                        best = (mount.virtual, rel, root.count)
+                    if let current = best, root.count <= current.matched {
+                        continue
                     }
+                    let folded: String
+                    if rel.isEmpty {
+                        folded = mount.virtual
+                    } else if mount.virtual == "/" {
+                        folded = "/" + rel
+                    } else {
+                        folded = mount.virtual + "/" + rel
+                    }
+                    best = Fold(virtual: folded, matched: root.count)
                 }
             }
         }
-        guard let best else { return nil }
-        if best.rel.isEmpty { return best.virtual }
-        return best.virtual == "/"
-            ? "/" + best.rel
-            : best.virtual + "/" + best.rel
+        return best?.virtual
     }
 
     /// The spellings under which a host path might be reported:
