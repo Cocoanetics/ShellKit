@@ -28,10 +28,16 @@ public extension Shell {
     }
 
     /// Snapshot of the active shell's positional parameters.
-    /// Mirrors `CommandLine.arguments` semantics — the value
-    /// embedders set via `Shell.positionalParameters`, falling
-    /// through to the host process arguments when running
-    /// standalone via ``Shell/processDefault``.
+    ///
+    /// Bash `$@` semantics: the program name is **not** included —
+    /// `arguments[0]` is the first real argument (`$1`). This is
+    /// *unlike* `CommandLine.arguments`, whose element 0 is the
+    /// binary path; a standalone entry point that `dropFirst()`s
+    /// out of that habit eats its first real argument
+    /// (SwiftPorts#69). The value is whatever embedders set via
+    /// ``Shell/positionalParameters``, falling through to the host
+    /// process arguments minus `argv[0]` when running standalone
+    /// via ``Shell/processDefault``.
     static var arguments: [String] {
         current.positionalParameters
     }
