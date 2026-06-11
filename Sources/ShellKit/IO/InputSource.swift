@@ -43,6 +43,25 @@ public struct InputSource: Sendable {
         await cursor.readLine()
     }
 
+    /// True when this source is the canonical ``empty`` instance —
+    /// the marker a shell binds when no pipe or redirect feeds a
+    /// command.
+    ///
+    /// Commands that emulate tools with "read stdin OR walk the cwd"
+    /// behaviour (ripgrep's no-path default) need to know whether
+    /// the embedder attached real input. The host process's fd 0
+    /// can't answer that for an embedded shell; the binding can:
+    /// `.empty` means "nothing attached", anything else was bound
+    /// on purpose.
+    ///
+    /// Identity-based: only the shared ``empty`` instance (and its
+    /// copies) answer true. A manually built zero-byte stream is
+    /// still "attached input that happens to be empty" — matching
+    /// bash, where `true | cmd` hands `cmd` a real (empty) pipe.
+    public var isCanonicalEmpty: Bool {
+        cursor === Self.empty.cursor
+    }
+
     // MARK: Factories
 
     /// An already-finished stream with no data.
