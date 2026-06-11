@@ -134,7 +134,10 @@ extension Sandbox {
             })
     }
 
-    // MARK: - Authorization helpers (internal but file-scoped sendable)
+    // MARK: - Authorization helpers
+    //
+    // `authorizeUnderRoots` is internal (not fileprivate): the
+    // path-mapping gate in `Sandbox+Confined.swift` shares it.
 
     fileprivate static func authorizeUnderRoot(
         url: URL,
@@ -147,7 +150,7 @@ extension Sandbox {
             allowedHosts: allowedHosts)
     }
 
-    fileprivate static func authorizeUnderRoots(
+    static func authorizeUnderRoots(
         url: URL,
         canonicalRoots: [String],
         allowedHosts: Set<String>
