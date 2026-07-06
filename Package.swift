@@ -72,7 +72,8 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/apple/swift-argument-parser",
                  from: "1.3.0"),
-        // Pinned to 0.4.x until 1.0 ships. See issue #1 for context.
+        // Standardized on swift-subprocess 0.5.x (Cocoanetics-wide) so ShellKit
+        // shares a graph with packages that require 0.5 (e.g. JSONFoundation → SwiftACP).
         // Explicit traits — opt OUT of `SubprocessSpan` because
         // ShellKit doesn't use the Span-based overloads, and enabling
         // them links a back-deployment shim
@@ -82,7 +83,7 @@ let package = Package(
         // ``DefaultProcessLauncher`` reads its captured byte buffers
         // through Foundation's `Data`.
         .package(url: "https://github.com/swiftlang/swift-subprocess",
-                 .upToNextMinor(from: "0.4.0"),
+                 .upToNextMinor(from: "0.5.0"),
                  traits: ["SubprocessFoundation"]),
     ],
     targets: [
