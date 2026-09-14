@@ -272,23 +272,30 @@ open class Shell: @unchecked Sendable {
 extension InputSource {
     /// Read-from-real-`FileHandle.standardInput` source used by
     /// ``Shell/processDefault``. Streams in 64 KiB chunks until EOF;
-    /// the underlying read happens on a detached low-priority Task
-    /// so the source itself is non-blocking.
+    /// each read happens on a detached low-priority Task so the
+    /// source itself is non-blocking.
+    ///
+    /// Reads are **on demand**: nothing touches fd 0 until a consumer
+    /// pulls the first chunk. That matters twice over. It matches the
+    /// shell — `head -1 < file` leaves the rest for the next reader
+    /// rather than draining it — and it keeps ``Shell/processDefault``
+    /// harmless to construct. The latter is not theoretical: the
+    /// TaskLocal `Shell.current` builds `processDefault` the first
+    /// time anything reads it, so a host that never consumes stdin
+    /// but *does* use fd 0 for its own protocol (a JSON-RPC server on
+    /// stdio, say) would otherwise find a background reader silently
+    /// stealing its requests the moment any library called
+    /// `Shell.current`.
     public static func processStandardInput() -> InputSource {
         let handle = FileHandle.standardInput
-        let (stream, cont) = AsyncStream<Data>.makeStream()
-        let task = Task.detached(priority: .utility) {
-            while !Task.isCancelled {
+        return InputSource(bytes: AsyncStream<Data>(unfolding: {
+            // One blocking read per pull, kept off the cooperative
+            // pool. `unfolding` serialises the pulls and stops asking
+            // once this returns nil, so EOF needs no extra bookkeeping.
+            await Task.detached(priority: .utility) {
                 let chunk = handle.availableData
-                if chunk.isEmpty {
-                    cont.finish()
-                    return
-                }
-                cont.yield(chunk)
-            }
-            cont.finish()
-        }
-        cont.onTermination = { _ in task.cancel() }
-        return InputSource(bytes: stream)
+                return chunk.isEmpty ? nil : chunk
+            }.value
+        }))
     }
 }
