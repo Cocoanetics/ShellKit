@@ -84,6 +84,20 @@ extension Shell {
         for normalized: String,
         segments: [Substring]
     ) -> WindowsRoot {
+        // Extended UNC paths put the server and share after the
+        // `//?/UNC` namespace marker, making all four segments the
+        // indivisible root.
+        if normalized.hasPrefix("//"),
+           segments.count >= 4,
+           segments[0] == "?",
+           segments[1].lowercased() == "unc" {
+            let unc = "//" + segments.prefix(4).joined(separator: "/")
+            return WindowsRoot(
+                drive: nil,
+                unc: unc,
+                remaining: Array(segments.dropFirst(4)))
+        }
+
         // A UNC server and share form an indivisible root. Remove
         // both from the segments we walk so `..` cannot escape the
         // share, then restore the double-slash prefix on rebuild.

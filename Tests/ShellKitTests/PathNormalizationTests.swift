@@ -36,5 +36,14 @@ import Testing
         #expect(Shell.normalizePath("//server/share/file") == "//server/share/file")
         #expect(Shell.normalizePath("//server/share/../../file") == "//server/share/file")
     }
+
+    @Test func preservesExtendedUNCRoot() {
+        #expect(
+            Shell.normalizePath(#"\\?\UNC\server\share\dir\.."#)
+                == "//?/UNC/server/share")
+        #expect(
+            Shell.normalizePath(#"\\?\UNC\server\share\..\file"#)
+                == "//?/UNC/server/share/file")
+    }
     #endif
 }
