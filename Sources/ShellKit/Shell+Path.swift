@@ -37,21 +37,10 @@ extension Shell {
         var saw: [Substring] = normalized.split(
             separator: "/", omittingEmptySubsequences: true)
         #if os(Windows)
-        // A UNC server and share form an indivisible root. Remove
-        // both from the segments we walk so `..` cannot escape the
-        // share, then restore the double-slash prefix on rebuild.
-        if normalized.hasPrefix("//"), saw.count >= 2 {
-            uncRoot = "//" + saw.prefix(2).joined(separator: "/")
-            saw = Array(saw.dropFirst(2))
-        } else if let first = saw.first,
-           first.count == 2,
-           let firstChar = first.first, firstChar.isLetter,
-           first.last == ":" {
-            // A leading `C:` segment is a drive root. After we
-            // record it, walk the rest as absolute beneath it.
-            driveRoot = String(first)
-            saw = Array(saw.dropFirst())
-        }
+        let windowsRoot = Self.windowsRoot(for: normalized, segments: saw)
+        driveRoot = windowsRoot.drive
+        uncRoot = windowsRoot.unc
+        saw = windowsRoot.remaining
         #endif
         let anchored = isUnixAbsolute || driveRoot != nil || uncRoot != nil
         for seg in saw {
@@ -76,14 +65,51 @@ extension Shell {
             return driveRoot + "/" + stack.joined(separator: "/")
         }
         if let uncRoot {
-            guard !stack.isEmpty else { return uncRoot }
-            return uncRoot + "/" + stack.joined(separator: "/")
+            return uncRoot + (stack.isEmpty ? "" : "/" + stack.joined(separator: "/"))
         }
         if isUnixAbsolute {
             return "/" + stack.joined(separator: "/")
         }
         return stack.isEmpty ? "." : stack.joined(separator: "/")
     }
+
+    #if os(Windows)
+    private struct WindowsRoot {
+        let drive: String?
+        let unc: String?
+        let remaining: [Substring]
+    }
+
+    private static func windowsRoot(
+        for normalized: String,
+        segments: [Substring]
+    ) -> WindowsRoot {
+        // A UNC server and share form an indivisible root. Remove
+        // both from the segments we walk so `..` cannot escape the
+        // share, then restore the double-slash prefix on rebuild.
+        if normalized.hasPrefix("//"), segments.count >= 2 {
+            let unc = "//" + segments.prefix(2).joined(separator: "/")
+            return WindowsRoot(
+                drive: nil,
+                unc: unc,
+                remaining: Array(segments.dropFirst(2)))
+        }
+
+        // A leading `C:` segment is a drive root. After we record it,
+        // walk the rest as absolute beneath it.
+        if let first = segments.first,
+           first.count == 2,
+           let firstChar = first.first, firstChar.isLetter,
+           first.last == ":" {
+            return WindowsRoot(
+                drive: String(first),
+                unc: nil,
+                remaining: Array(segments.dropFirst()))
+        }
+
+        return WindowsRoot(drive: nil, unc: nil, remaining: segments)
+    }
+    #endif
 }
 
 extension Shell {
