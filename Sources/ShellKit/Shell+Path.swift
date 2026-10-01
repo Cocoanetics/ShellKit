@@ -18,8 +18,9 @@ extension Shell {
     ///
     /// On Windows, backslashes are normalised to forward slashes
     /// up front (Win32 path APIs accept both). Drive-letter paths
-    /// keep their `C:` prefix as the root segment so the result is
-    /// still a valid Windows path: `C:\Users\foo\..\bar` → `C:/Users/bar`.
+    /// keep their `C:` prefix as the root segment, and UNC paths keep
+    /// their `//server/share` root, so each result remains a valid
+    /// Windows path: `C:\Users\foo\..\bar` → `C:/Users/bar`.
     public static func normalizePath(_ path: String) -> String {
         guard !path.isEmpty else { return "" }
         #if os(Windows)
@@ -27,28 +28,32 @@ extension Shell {
         #else
         let normalized = path
         #endif
-        // Split on `/`, tracking whether the path is anchored at the
-        // root (Unix `/foo`) or at a drive (Windows `C:/foo`). For a
-        // drive-letter path we keep the `C:` segment in the stack so
-        // the rebuilt string still stems from that drive.
+        // Split on `/`, tracking whether the path is anchored at a
+        // Unix root, a Windows drive, or a Windows UNC share.
         let isUnixAbsolute = normalized.hasPrefix("/")
         var stack: [String] = []
         var driveRoot: String?
+        var uncRoot: String?
         var saw: [Substring] = normalized.split(
             separator: "/", omittingEmptySubsequences: true)
         #if os(Windows)
-        // Detect a leading `C:` segment (drive root). After we
-        // record it, the rest of the segments are walked as if the
-        // path were absolute beneath that drive.
-        if let first = saw.first,
+        // A UNC server and share form an indivisible root. Remove
+        // both from the segments we walk so `..` cannot escape the
+        // share, then restore the double-slash prefix on rebuild.
+        if normalized.hasPrefix("//"), saw.count >= 2 {
+            uncRoot = "//" + saw.prefix(2).joined(separator: "/")
+            saw = Array(saw.dropFirst(2))
+        } else if let first = saw.first,
            first.count == 2,
            let firstChar = first.first, firstChar.isLetter,
            first.last == ":" {
+            // A leading `C:` segment is a drive root. After we
+            // record it, walk the rest as absolute beneath it.
             driveRoot = String(first)
             saw = Array(saw.dropFirst())
         }
         #endif
-        let anchored = isUnixAbsolute || driveRoot != nil
+        let anchored = isUnixAbsolute || driveRoot != nil || uncRoot != nil
         for seg in saw {
             switch seg {
             case ".":
@@ -69,6 +74,10 @@ extension Shell {
         }
         if let driveRoot {
             return driveRoot + "/" + stack.joined(separator: "/")
+        }
+        if let uncRoot {
+            guard !stack.isEmpty else { return uncRoot }
+            return uncRoot + "/" + stack.joined(separator: "/")
         }
         if isUnixAbsolute {
             return "/" + stack.joined(separator: "/")
