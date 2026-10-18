@@ -177,6 +177,13 @@ extension Shell {
     public func resolve(_ path: String) -> URL {
         let url: URL
         if path.hasPrefix("/") {
+            #if os(Windows)
+            // Without a mapping, `/x` is a host path: the root of the
+            // shell's drive.
+            if sandbox?.pathMapping == nil, let rooted = onShellDrive(path) {
+                return URL(fileURLWithPath: rooted)
+            }
+            #endif
             url = URL(fileURLWithPath: path)
         } else {
             #if os(Windows)
@@ -185,9 +192,8 @@ extension Shell {
                 // `\\server\share`) absolutes live outside the
                 // unix-style virtual namespace; under a mapping they
                 // fall through to the unmapped sentinel below.
-                let rootedURL = URL(fileURLWithPath: path)
-                guard sandbox?.pathMapping != nil else { return rootedURL }
-                return Self.voidedUnmappedPath(path)
+                guard sandbox?.pathMapping == nil else { return Self.voidedUnmappedPath(path) }
+                return URL(fileURLWithPath: onShellDrive(path) ?? path)
             }
             #endif
             let cwd = environment.workingDirectory
@@ -226,6 +232,25 @@ extension Shell {
         }
         return URL(fileURLWithPath: translated.host)
     }
+
+    #if os(Windows)
+    /// `path` on the shell's drive when it is rooted at the current
+    /// drive's root (`\x` or `/x`, but not a `\\server\share` UNC
+    /// path): Windows takes the current drive for it, and the shell's is
+    /// its working directory's, which needn't be the process's. `nil`
+    /// for any other path, or when the working directory names no drive.
+    private func onShellDrive(_ path: String) -> String? {
+        let separators: Set<Character> = ["/", "\\"]
+        guard let first = path.first, separators.contains(first) else { return nil }
+        // A second separator makes it a UNC path.
+        if let second = path.dropFirst().first, separators.contains(second) { return nil }
+        let cwd = environment.workingDirectory
+        guard let letter = cwd.first, letter.isASCII, letter.isLetter,
+              cwd.dropFirst().first == ":"
+        else { return nil }
+        return String(cwd.prefix(2)) + path
+    }
+    #endif
 
     /// Resolve `path` against ``current``'s working directory.
     /// Equivalent to `Shell.current.resolve(path)`; provided for

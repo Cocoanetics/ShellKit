@@ -92,13 +92,21 @@ import ShellCommandKit  // Shell.register(_:) bridge
     #if os(Windows)
     @Test func resolveBackslashRootedPathsAsAbsolute() async throws {
         var env = Environment()
-        env.workingDirectory = #"C:\work"#
+        // A drive the process is unlikely to be on.
+        env.workingDirectory = #"Q:\work"#
         let shell = Shell(environment: env)
         // Rooted by a backslash, as by a drive letter: not joined to the
-        // working directory.
-        for path in [#"\\server\share\repo.git"#, #"\repo.git"#, #"C:\repo.git"#] {
+        // working directory. A UNC path or a drive keeps its own root…
+        for path in [#"\\server\share\repo.git"#, "//server/share/repo.git", #"C:\repo.git"#] {
             #expect(shell.resolve(path) == URL(fileURLWithPath: path))
         }
+        // …and the current drive's root is the shell's, not the process's.
+        #expect(shell.resolve(#"\repo.git"#) == URL(fileURLWithPath: #"Q:\repo.git"#))
+        #expect(shell.resolve("/repo.git") == URL(fileURLWithPath: "Q:/repo.git"))
+        #expect(shell.resolve("/") == URL(fileURLWithPath: "Q:/"))
+        // Without a drive to take, the process's.
+        let driveless = Shell(environment: Environment())
+        #expect(driveless.resolve(#"\repo.git"#) == URL(fileURLWithPath: #"\repo.git"#))
         // Outside the virtual namespace, so voided under a mapping.
         shell.sandbox = .confined(
             to: PathMapping(mounts: [.init(virtual: "/work", host: #"C:\work"#)]),
