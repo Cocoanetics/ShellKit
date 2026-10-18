@@ -22,6 +22,8 @@ import ShellKit
 ///    `run()`; otherwise calls the synchronous `run()`.
 /// 4. Translates ArgumentParser's exit conventions to ``ExitStatus``:
 ///    - `ExitCode` thrown from `run()` → matching `ExitStatus`.
+///    - A ``CommandFailure`` thrown from `run()` → its diagnostic on
+///      `stderr` as is, and its exit status.
 ///    - `--help` / `--version` (clean exits with code 0) print the
 ///      message to ``Shell/current``'s `stdout` and return success.
 ///    - Usage errors (parse failures, validation) print to
@@ -66,6 +68,11 @@ struct ParsableCommandBridge<P: ParsableCommand>: Command {
             throw CancellationError()
         } catch let exit as ExitCode {
             return ExitStatus(exit.rawValue)
+        } catch let failure as CommandFailure {
+            // The command's own words and status, as it would print them
+            // standalone.
+            Shell.current.stderr(failure.diagnostic)
+            return failure.exitStatus
         } catch let denial as Sandbox.Denial {
             // Render only the human-readable reason — never the sandbox root
             // or the requested path that `Sandbox.Denial` also carries — so an
