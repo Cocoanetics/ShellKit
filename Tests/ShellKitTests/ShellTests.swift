@@ -329,6 +329,32 @@ import ShellCommandKit  // Shell.register(_:) bridge
         }
     }
 
+    @Test func commandFailurePrintsItsOwnDiagnosticAndStatus() async throws {
+        struct Fatal: CommandFailure {
+            var diagnostic: String { "fatal: something git-like\n" }
+            var exitStatus: ShellKit.ExitStatus { ShellKit.ExitStatus(128) }
+        }
+        struct Failer: AsyncParsableCommand {
+            static let configuration = CommandConfiguration(
+                commandName: "shellkit-test-fatal")
+            func run() async throws {
+                throw Fatal()
+            }
+        }
+
+        let stderr = OutputSink()
+        let shell = Shell(stderr: stderr)
+        shell.register(Failer.self)
+
+        try await shell.withCurrent {
+            let status = try await shell.commands["shellkit-test-fatal"]!.run(["shellkit-test-fatal"])
+            #expect(status.code == 128)
+        }
+        stderr.finish()
+        // As written: no `Error: ` prefix, no extra newline.
+        #expect(await stderr.readAllString() == "fatal: something git-like\n")
+    }
+
     @Test func parsableCommandVendsNamedInstanceWithoutRegistering() async throws {
         // The producer-side API: obtain an installable Command instance
         // (named from configuration.commandName) WITHOUT touching any shell's
