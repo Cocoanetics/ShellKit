@@ -89,6 +89,43 @@ import ShellCommandKit  // Shell.register(_:) bridge
         #expect(url.path == "/tmp/some-where/file.txt")
     }
 
+    #if os(Windows)
+    @Test func resolveBackslashRootedPathsAsAbsolute() async throws {
+        var env = Environment()
+        // A drive the process is unlikely to be on.
+        env.workingDirectory = #"Q:\work"#
+        let shell = Shell(environment: env)
+        // Rooted by a backslash, as by a drive letter: not joined to the
+        // working directory. A UNC path or a drive keeps its own root…
+        for path in [#"\\server\share\repo.git"#, "//server/share/repo.git", #"C:\repo.git"#] {
+            #expect(shell.resolve(path) == URL(fileURLWithPath: path))
+        }
+        // …and the current drive's root is the shell's, not the process's.
+        #expect(shell.resolve(#"\repo.git"#) == URL(fileURLWithPath: #"Q:\repo.git"#))
+        #expect(shell.resolve(#"\"#) == URL(fileURLWithPath: #"Q:\"#))
+        // Without a drive to take (a unix-style working directory), the
+        // process's. `Environment()` itself starts in the process's
+        // directory, drive included.
+        var driveless = Environment()
+        driveless.workingDirectory = "/virtual/cwd"
+        #expect(Shell(environment: driveless).resolve(#"\repo.git"#)
+            == URL(fileURLWithPath: #"\repo.git"#))
+        // Outside the virtual namespace, so voided under a mapping.
+        shell.sandbox = .confined(
+            to: PathMapping(mounts: [.init(virtual: "/work", host: #"C:\work"#)]),
+            home: "/work")
+        #expect(shell.resolve(#"\\server\share\repo.git"#).path
+            .contains(Shell.unmappedPathSentinel))
+    }
+    #else
+    @Test func resolveTakesABackslashAsAnOrdinaryCharacter() async throws {
+        var env = Environment()
+        env.workingDirectory = "/tmp/some-where"
+        let shell = Shell(environment: env)
+        #expect(shell.resolve(#"\file.txt"#).path == #"/tmp/some-where/\file.txt"#)
+    }
+    #endif
+
     @Test func resolveStaticHonoursCurrent() async throws {
         var env = Environment()
         env.workingDirectory = "/var/scope"
