@@ -89,6 +89,32 @@ import ShellCommandKit  // Shell.register(_:) bridge
         #expect(url.path == "/tmp/some-where/file.txt")
     }
 
+    #if os(Windows)
+    @Test func resolveBackslashRootedPathsAsAbsolute() async throws {
+        var env = Environment()
+        env.workingDirectory = #"C:\work"#
+        let shell = Shell(environment: env)
+        // Rooted by a backslash, as by a drive letter: not joined to the
+        // working directory.
+        for path in [#"\\server\share\repo.git"#, #"\repo.git"#, #"C:\repo.git"#] {
+            #expect(shell.resolve(path) == URL(fileURLWithPath: path))
+        }
+        // Outside the virtual namespace, so voided under a mapping.
+        shell.sandbox = .confined(
+            to: PathMapping(mounts: [.init(virtual: "/work", host: #"C:\work"#)]),
+            home: "/work")
+        #expect(shell.resolve(#"\\server\share\repo.git"#).path
+            .contains(Shell.unmappedPathSentinel))
+    }
+    #else
+    @Test func resolveTakesABackslashAsAnOrdinaryCharacter() async throws {
+        var env = Environment()
+        env.workingDirectory = "/tmp/some-where"
+        let shell = Shell(environment: env)
+        #expect(shell.resolve(#"\file.txt"#).path == #"/tmp/some-where/\file.txt"#)
+    }
+    #endif
+
     @Test func resolveStaticHonoursCurrent() async throws {
         var env = Environment()
         env.workingDirectory = "/var/scope"

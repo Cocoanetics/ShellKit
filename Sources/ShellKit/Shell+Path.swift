@@ -180,13 +180,13 @@ extension Shell {
             url = URL(fileURLWithPath: path)
         } else {
             #if os(Windows)
-            if path.count >= 2,
-               let second = path.dropFirst().first, second == ":" {
-                // Drive-letter absolutes live outside the unix-style
-                // virtual namespace; under a mapping they fall through
-                // to the unmapped sentinel below.
-                let driveURL = URL(fileURLWithPath: path)
-                guard sandbox?.pathMapping != nil else { return driveURL }
+            if path.hasPrefix("\\") || path.dropFirst().first == ":" {
+                // Drive-letter (`C:\x`) and backslash-rooted (`\x`,
+                // `\\server\share`) absolutes live outside the
+                // unix-style virtual namespace; under a mapping they
+                // fall through to the unmapped sentinel below.
+                let rootedURL = URL(fileURLWithPath: path)
+                guard sandbox?.pathMapping != nil else { return rootedURL }
                 return Self.voidedUnmappedPath(path)
             }
             #endif
