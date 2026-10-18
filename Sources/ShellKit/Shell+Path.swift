@@ -177,13 +177,6 @@ extension Shell {
     public func resolve(_ path: String) -> URL {
         let url: URL
         if path.hasPrefix("/") {
-            #if os(Windows)
-            // Without a mapping, `/x` is a host path: the root of the
-            // shell's drive.
-            if sandbox?.pathMapping == nil, let rooted = onShellDrive(path) {
-                return URL(fileURLWithPath: rooted)
-            }
-            #endif
             url = URL(fileURLWithPath: path)
         } else {
             #if os(Windows)
@@ -234,16 +227,15 @@ extension Shell {
     }
 
     #if os(Windows)
-    /// `path` on the shell's drive when it is rooted at the current
-    /// drive's root (`\x` or `/x`, but not a `\\server\share` UNC
-    /// path): Windows takes the current drive for it, and the shell's is
-    /// its working directory's, which needn't be the process's. `nil`
-    /// for any other path, or when the working directory names no drive.
+    /// `path` on the shell's drive when a backslash roots it at the
+    /// current drive's root (`\x`, not a `\\server\share` UNC path):
+    /// Windows takes the current drive for it, and the shell's is its
+    /// working directory's, which needn't be the process's. `nil` for
+    /// any other path, or when the working directory names no drive.
     private func onShellDrive(_ path: String) -> String? {
-        let separators: Set<Character> = ["/", "\\"]
-        guard let first = path.first, separators.contains(first) else { return nil }
+        guard path.hasPrefix("\\") else { return nil }
         // A second separator makes it a UNC path.
-        if let second = path.dropFirst().first, separators.contains(second) { return nil }
+        if let second = path.dropFirst().first, second == "\\" || second == "/" { return nil }
         let cwd = environment.workingDirectory
         guard let letter = cwd.first, letter.isASCII, letter.isLetter,
               cwd.dropFirst().first == ":"

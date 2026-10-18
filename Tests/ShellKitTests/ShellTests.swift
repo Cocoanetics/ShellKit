@@ -102,8 +102,7 @@ import ShellCommandKit  // Shell.register(_:) bridge
         }
         // …and the current drive's root is the shell's, not the process's.
         #expect(shell.resolve(#"\repo.git"#) == URL(fileURLWithPath: #"Q:\repo.git"#))
-        #expect(shell.resolve("/repo.git") == URL(fileURLWithPath: "Q:/repo.git"))
-        #expect(shell.resolve("/") == URL(fileURLWithPath: "Q:/"))
+        #expect(shell.resolve(#"\"#) == URL(fileURLWithPath: #"Q:\"#))
         // Without a drive to take, the process's.
         let driveless = Shell(environment: Environment())
         #expect(driveless.resolve(#"\repo.git"#) == URL(fileURLWithPath: #"\repo.git"#))
