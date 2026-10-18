@@ -103,9 +103,13 @@ import ShellCommandKit  // Shell.register(_:) bridge
         // …and the current drive's root is the shell's, not the process's.
         #expect(shell.resolve(#"\repo.git"#) == URL(fileURLWithPath: #"Q:\repo.git"#))
         #expect(shell.resolve(#"\"#) == URL(fileURLWithPath: #"Q:\"#))
-        // Without a drive to take, the process's.
-        let driveless = Shell(environment: Environment())
-        #expect(driveless.resolve(#"\repo.git"#) == URL(fileURLWithPath: #"\repo.git"#))
+        // Without a drive to take (a unix-style working directory), the
+        // process's. `Environment()` itself starts in the process's
+        // directory, drive included.
+        var driveless = Environment()
+        driveless.workingDirectory = "/virtual/cwd"
+        #expect(Shell(environment: driveless).resolve(#"\repo.git"#)
+            == URL(fileURLWithPath: #"\repo.git"#))
         // Outside the virtual namespace, so voided under a mapping.
         shell.sandbox = .confined(
             to: PathMapping(mounts: [.init(virtual: "/work", host: #"C:\work"#)]),
