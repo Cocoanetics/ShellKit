@@ -136,7 +136,10 @@ jobs:
   # the emulator setup needs nested KVM, which only works on the bare
   # ubuntu-* runner image.
   build-android:
-    runs-on: ubuntu-latest
+    # Pin Ubuntu 24.04: ubuntu-latest now resolves to 26.04, whose Swift
+    # host toolchain swift.org doesn't publish (swift-android-action 404s).
+    # Revisit once swift.org ships Ubuntu 26.04 toolchains.
+    runs-on: ubuntu-24.04
     # First cold run = ~25 min (SDK + NDK + emulator boot dominates);
     # cached subsequent runs are ~5 min. 30 min covers both with a
     # comfortable margin.
