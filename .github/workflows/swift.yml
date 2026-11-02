@@ -140,6 +140,9 @@ jobs:
         uses: skiptools/swift-android-action@v2
         with:
           swift-version: "6.4.2"
+          # The Swift 6.4 Android SDK requires NDK 30; the runner's
+          # default ANDROID_NDK_HOME is still 27.x.
+          ndk-version: latest
           # The default GitHub Linux runner has ~14 GiB free; the SDK,
           # NDK, and emulator together push past that without cleanup.
           free-disk-space: true
