@@ -14,45 +14,21 @@ env:
 jobs:
 
   build-macos:
-    runs-on: macos-15
+    runs-on: xcode-27
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
-      # Pin `macos-15` rather than `macos-latest`: `setup-xcode` only
-      # selects among Xcodes already on the image, and `-latest` isn't
-      # guaranteed to carry Xcode 26 — the macOS/iOS jobs would fail
-      # before build when it rotates to an older image. `macos-15` ships
-      # Xcode 26.0.1 (selected below for Swift 6.2, matching SwiftPorts)
-      # and pre-installs the iOS platform `build-ios` needs. (`macos-26`
-      # carries Xcode 26 but not the iOS SDK — it'd need a per-run
-      # `xcodebuild -downloadPlatform iOS`.) Aligned with SwiftBash.
-      - name: Select Xcode 26.0
+      # Xcode 27.1 (the `xcode-27` image) carries Swift 6.4.
+      - name: Select Xcode 27.1
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: "26.0"
+          xcode-version: "27.1"
       - name: Verify Swift version
-        run: swift --version
+        run: v="$(swift --version 2>&1)"; echo "$v"; echo "$v" | grep -q "Swift version 6\.4"
       - name: Build (macOS)
         run: swift build --build-tests -v
       - name: Test (macOS)
-        # Xcode 26's Swift 6.2 back-deploys `Span` to macOS 13 / 14 via
-        # `libswiftCompatibilitySpan.dylib` (under
-        # `swift-6.2/macosx/`). swift-subprocess references Span types
-        # unconditionally on `compiler(>=6.2)`, so even with our
-        # `SubprocessSpan` trait disabled the test binary still has an
-        # `@rpath/libswiftCompatibilitySpan.dylib` LC_LOAD_DYLIB.
-        # SwiftPM's test runtime doesn't put the toolchain's
-        # back-deployment dir on the search path, so we add it
-        # explicitly via DYLD_LIBRARY_PATH.
-        run: |
-          COMPAT_DIR="$(xcode-select -p)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-6.2/macosx"
-          if [ ! -d "$COMPAT_DIR" ]; then
-            echo "::error::expected back-deployment dir not found: $COMPAT_DIR"
-            ls -d "$(xcode-select -p)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-"*/macosx 2>/dev/null || true
-            exit 1
-          fi
-          export DYLD_LIBRARY_PATH="$COMPAT_DIR:${DYLD_LIBRARY_PATH:-}"
-          swift test -v --skip-build --no-parallel
+        run: swift test -v --skip-build --no-parallel
 
   build-ios:
     # iOS: compile against the device SDK (portability check — swift-
@@ -65,14 +41,28 @@ jobs:
     # ProcessTable, Shell, argument-parser bridge). Unlike SwiftBash —
     # whose heavier suite intermittently hangs the simulator, so it stays
     # compile-only — ShellKit's tests run cleanly on a sim.
-    runs-on: macos-15
-    timeout-minutes: 15
+    runs-on: xcode-27
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v6
-      - name: Select Xcode 26.0
+      - name: Select Xcode 27.1
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: "26.0"
+          xcode-version: "27.1"
+      - name: Verify Swift version
+        run: v="$(swift --version 2>&1)"; echo "$v"; echo "$v" | grep -q "Swift version 6\.4"
+      # This Xcode image ships without the iOS SDK preinstalled; fetch it. The
+      # download intermittently flakes on the hosted runner, so retry before failing.
+      - name: Install the iOS platform
+        run: |
+          set -o pipefail
+          for i in 1 2 3; do
+            echo "::group::xcodebuild -downloadPlatform iOS (attempt $i)"
+            if xcodebuild -downloadPlatform iOS; then echo "::endgroup::"; exit 0; fi
+            echo "::endgroup::"
+            echo "attempt $i failed; retrying in 20s…"; sleep 20
+          done
+          echo "::error::Could not download the iOS platform after 3 attempts"; exit 1
       - name: Build (iOS device — all package targets)
         run: |
           xcodebuild \
@@ -83,7 +73,7 @@ jobs:
         run: |
           set -eo pipefail
           # Pick the first available iPhone simulator — don't pin a device
-          # name a future Xcode might drop (Xcode 26 ships no "iPhone 16",
+          # name a future Xcode might drop (a future Xcode may ship no "iPhone 16",
           # for example).
           UDID=$(xcrun simctl list devices available --json \
             | jq -r '[.devices[][] | select(.name|test("iPhone"))][0].udid // empty')
@@ -100,10 +90,12 @@ jobs:
     # image's libc-dev is enough.
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    container:
+      image: swift:6.4.2-jammy
     steps:
       - uses: actions/checkout@v6
       - name: Verify Swift version
-        run: swift --version
+        run: v="$(swift --version 2>&1)"; echo "$v"; echo "$v" | grep -q "Swift version 6\.4"
       - name: Build (Linux)
         run: swift build --build-tests -v
       - name: Test (Linux)
@@ -120,9 +112,10 @@ jobs:
       - name: Setup Swift
         uses: SwiftyLab/setup-swift@latest
         with:
-          swift-version: "6.3.1"
+          swift-version: "6.4.2"
       - name: Verify Swift version
-        run: swift --version
+        shell: bash
+        run: v="$(swift --version 2>&1)"; echo "$v"; echo "$v" | grep -q "Swift version 6\.4"
       - name: Build (Windows)
         shell: pwsh
         run: swift build --build-tests -v
@@ -136,10 +129,7 @@ jobs:
   # the emulator setup needs nested KVM, which only works on the bare
   # ubuntu-* runner image.
   build-android:
-    # Pin Ubuntu 24.04: ubuntu-latest now resolves to 26.04, whose Swift
-    # host toolchain swift.org doesn't publish (swift-android-action 404s).
-    # Revisit once swift.org ships Ubuntu 26.04 toolchains.
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     # First cold run = ~25 min (SDK + NDK + emulator boot dominates);
     # cached subsequent runs are ~5 min. 30 min covers both with a
     # comfortable margin.
@@ -149,7 +139,10 @@ jobs:
       - name: Build & Test (Android emulator)
         uses: skiptools/swift-android-action@v2
         with:
-          swift-version: "6.3"
+          swift-version: "6.4.2"
           # The default GitHub Linux runner has ~14 GiB free; the SDK,
           # NDK, and emulator together push past that without cleanup.
           free-disk-space: true
+      # The action leaves the 6.4.2 host toolchain on PATH.
+      - name: Verify Swift version
+        run: v="$(swift --version 2>&1)"; echo "$v"; echo "$v" | grep -q "Swift version 6\.4"
